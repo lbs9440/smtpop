@@ -8,6 +8,9 @@ import json
 import select
 import base64
 import random
+import dns.dns
+import smtp_client
+import subprocess
 
 class States(Enum):
     INIT = "INIT"
@@ -20,18 +23,26 @@ class States(Enum):
     DATA = "DATA"
 
 class Server:
-    def __init__(self) -> None:
+    def __init__(self, domain = "abeersclass.com", dns_ip = "127.0.0.1") -> None:
         self.clients = {}
         self.load_accounts("accounts.json")
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setblocking(False)
         self.server_sock.bind(('127.0.0.1', random.randint(5000, 8000)))
         self.inputs = [self.server_sock]
+        self.domain = domain
+        self.dns_port = 8080
+        self.dns_ip = dns_ip
 
     def load_accounts(self, filename: str) -> None:
         with open(filename) as f:
             data = json.load(f)
             self.accounts = data
+
+    def load_emails(self, username):
+        with open("emails.json") as f:
+            emails = json.load(f)
+            return emails[username]
 
     def new_client(self):
         client, addr = self.server_sock.accept()
@@ -74,17 +85,35 @@ class Server:
     def verify_account(self, client):
         return self.accounts[client["username"].decode()] == client["pw"].decode()
 
-    def forward_email(self, client):
-        # do DNS lookup for dst
-        # make Client instance
-        # use that to send to the other server in a subprocess.
-        pass
+    def update_emails(self, client):
+        with open("emails.json", 'rw') as f:
+            emails = json.load(f)
+            if client["username"] not in emails:
+                emails[client["username"]] = []
+            emails[client["username"]].append({"FROM": client["from"], "msg": client['msg']})
+            json.dump(emails, f, indent=4, ensure_ascii=False)
+
+    def forward_email(self, client_sock):
+        client = self.clients[client_sock]
+        to_domain = client["dst"].split("@")[-1]
+        if to_domain == self.domain:
+            self.update_emails(client)
+        else:
+            # do DNS lookup for dst
+            dst_addr = dns.dns.dns_lookup(self.dns_ip, self.dns_port, to_domain)
+            if dst_addr:
+                # make Client instance
+                sender = smtp_client.EmailClient()
+                # use that to send to the other server in a subprocess.
+                subprocess.run(sender.send_email(username=client["username"], pw=client["pw"], to_addr=client["dst"], msg = client["msg"], dst_addr = dst_addr, forward=True))
 
     def smtp_commands(self, client_sock):
         client = self.clients[client_sock]
-        inputs = client['buffer'].split(b"\r\n")
-        client['buffer'] = inputs[-1] # write unfinished line back to the dict
-        input_lines = inputs[:-1]
+        input_lines = client['buffer'].split(b"\r\n")
+        client['buffer'] = input_lines[-1] # write unfinished line back to the dict
+        if not client['buffer'].endswith(b"\r\n"):
+            client['buffer'] = input_lines[-1] # write unfinished line back to the dict
+            input_lines = input_lines[:-1]
         commands = self.parse_commands(input_lines)
         for i, command in enumerate(commands):
             line = input_lines[i]
@@ -92,42 +121,42 @@ class Server:
                 case "EHLO" | "HELO":
                     if client["state"] == States.INIT:
                         client['state'] = States.AUTH_INIT
-                        client_sock.send(b"250-smtp-server.abeersclass.com\r\n250-AUTH LOGIN PLAIN\r\n250 Ok\r\n")
+                        client_sock.sendall(b"250-smtp-server.abeersclass.com\r\n250-AUTH LOGIN PLAIN\r\n250 Ok\r\n")
                 case "AUTH LOGIN":
                     if client["state"] == States.AUTH_INIT:
-                        client_sock.send(b"334 " + base64.b64encode(b"Username:"))
+                        client_sock.sendall(b"334 " + base64.b64encode(b"Username:"))
                         client["state"] = States.AUTH_USER
                 case "TEXT":
                     if client["state"] == States.AUTH_USER:
                         client["username"] = line
-                        client_sock.send(b"334 " + base64.b64encode(b"Password:"))
+                        client_sock.sendall(b"334 " + base64.b64encode(b"Password:"))
                         client["state"] = States.AUTH_PW
                     elif client["state"] == States.AUTH_PW:
                         client["pw"] = line
                         if self.verify_account(client):
-                            client_sock.send(b"235 2.7.0 Authentication successful")
+                            client_sock.sendall(b"235 2.7.0 Authentication successful")
                             client["state"] = States.READY
                         else:
-                            client_sock.send(b"535 5.7.8 Authentication credentials invalid")
+                            client_sock.sendall(b"535 5.7.8 Authentication credentials invalid")
                             self.disconnect(client_sock)
                     elif client["state"] == States.DATA:
-                        client["msg"] += line
+                        client["msg"] += line + b"\r\n"
                         if line == ".":
-                            client_sock.send(b"250 Ok: queued")
-                            self.forward_email(client)
+                            client_sock.sendall(b"250 Ok: queued")
+                            self.forward_email(client_sock)
                 case "MAIL FROM":
                     if client["state"] == States.READY:
                         client["from"] = line
                         client["state"] = States.DEST
-                        client_sock.send(b"250 Ok\r\n")
+                        client_sock.sendall(b"250 Ok\r\n")
                 case "RCPT TO":
                     if client["state"] == States.DEST:
                         client["dst"] = line[8:]
                         client["state"] = States.DATA
-                        client_sock.send(b"250 Ok\r\n")
+                        client_sock.sendall(b"250 Ok\r\n")
                 case "DATA":
                     if client["state"] == States.DATA:
-                        client_sock.send(b"354 End data with <CR><LF>.<CR><LF>")
+                        client_sock.sendall(b"354 End data with <CR><LF>.<CR><LF>")
                 case "QUIT":
                     self.disconnect(client_sock)
 
