@@ -1,3 +1,7 @@
+"""
+SMTP Client implementation
+Author: Landon Spitzer - lbs9440@rit.edu
+"""
 import socket
 import base64
 import hashlib
@@ -13,6 +17,9 @@ class EmailClient:
         self.password = None
         self.password_hash = None
         self.s = None
+        self.pop_socket = None
+        self.pop_ip = 'localhost'
+        self.pop_port = 8110
 
     def run(self):
         print("Welcome to abeersclass.com Email Client")
@@ -26,13 +33,16 @@ class EmailClient:
         while True:
             print("\nMenu:")
             print("1. Compose Email")
-            print("2. Quit")
+            print("2. Inbox")
+            print("3. Quit")
 
             choice = input("Select an option: ").strip()
 
             if choice == "1":
                 self.send_email()
             elif choice == "2":
+                self.fetch_inbox()
+            elif choice == "3":
                 print("Goodbye.")
                 break
             else:
@@ -103,11 +113,21 @@ class EmailClient:
 
 
 
-    def send_email(self):
+    def send_email(self, username="", pw="", to_addr = "", msg = "", dst_addr = (), forward = False):
         try:
+            if forward:
+                self.password_hash = pw
+                try:
+                    self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    self.s.connect(dst_addr)
+                    greeting = self.read_response(self.s)
+                    print(f"Server: {greeting.strip()}")
+                except Exception as e:
+                    print(f"Connection failed: {e}")
+                    return None
             if self.server_auth():
-                from_address = f"{self.username}@{DOMAIN}"
-                to_address = input("To (recipient email): ").strip()
+                from_address = f"{str(self.username if not forward else username)}@{DOMAIN}"
+                to_address = str(to_addr if forward else input("To (recipient email): ").strip())
                 if "@" not in to_address:
                     print("Invalid recipient address.")
                     return
@@ -133,7 +153,7 @@ class EmailClient:
                 print("Compose your email (end with Ctrl+D):")
                 body = prompt("", multiline=True)
 
-                message = f"Subject: {subject}\r\n\r\n{body}\r\n.\r\n"
+                message = str(f"Subject: {subject}\r\n\r\n{body}\r\n.\r\n" if not forward else msg)
                 self.s.sendall(message.encode())
                 print(self.read_response(self.s).strip())
 
@@ -152,12 +172,12 @@ class EmailClient:
             return None
 
     def read_response(self, sock):
-        return sock.recv(2048).decode()
+        return sock.recv(1024).decode()
 
     def read_multiline(self, sock):
         lines = []
         while True:
-            chunk = sock.recv(2048).decode()
+            chunk = sock.recv(1024).decode()
             lines.append(chunk)
             if "250 Ok" in chunk:
                 break
@@ -171,6 +191,130 @@ class EmailClient:
 
     def hash_password(self, password):
         return hashlib.sha256(password.encode()).hexdigest()
+    
+    def fetch_inbox(self):
+        try:
+            if not self.pop3_auth():
+                return
+
+            self.send_and_print(self.pop_socket, "STAT")
+            stat = self.read_response(self.pop_socket)
+            print(f"Server: {stat.strip()}")
+            count = int(stat.split()[1]) if stat.startswith("+OK") else -1
+
+            if count == 0:
+                print("Inbox is empty.")
+                return
+            elif count == -1:
+                print(f"Error fetching inbox: {stat}")
+                return
+
+            print(f"\nYou have {count} messages. Showing first 10:\n")
+            for i in range(1, min(11, count + 1)):
+                self.send_and_print(self.pop_socket, f"RETR {i}")
+                raw = self.read_multiline(self.pop_socket)
+                from_line = next((line for line in raw.split("\r\n") if line.startswith("From:")), "From: ???")
+                subject_line = next((line for line in raw.split("\r\n") if line.startswith("Subject:")), "Subject: ???")
+                print(f"{i}. {from_line} | {subject_line}")
+
+            self.pop3_trans(count)
+
+        except Exception as e:
+            print(f"Error fetching inbox: {e}")
+    
+    def pop3_auth(self):
+        try:
+            self.pop_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.pop_socket.connect((self.pop_ip, self.pop_port))
+            ready = self.read_response(self.pop_socket)
+            print(f"Server: {ready.strip()}")
+            if not ready.startswith("+OK"):
+                print("POP3 server not ready.")
+                self.pop_socket.close()
+                return False
+
+            self.send_and_print(self.pop_socket, "USER " + self.username)
+            user_response = self.read_response(self.pop_socket)
+            print(f"Server: {user_response.strip()}")
+            if not user_response.startswith(f"+OK {self.username}"):
+                print("Error with username.")
+                self.pop_socket.close()
+                return False
+
+            self.send_and_print(self.pop_socket, "PASS " + self.hashed_password)
+            pass_response = self.read_response(self.pop_socket)
+            print(f"Server: {pass_response.strip()}")
+            if not pass_response.startswith(f"+OK {self.username}"):
+                print("Error with password.")
+                self.pop_socket.close()
+                return False
+
+            return True
+        
+        except Exception as e:
+            print(f"POP3 error: {e}")
+            return False
+    
+    def pop3_trans(self, total_msgs):
+        page_size = 10
+        current_page = 0
+
+        while True:
+            start_msg = current_page * page_size + 1
+            end_msg = min(start_msg + page_size - 1, total_msgs)
+            print(f"\nShowing messages {start_msg} to {end_msg} of {total_msgs}:\n")
+
+            for i in range(start_msg, end_msg + 1):
+                self.send_and_print(self.pop_socket, f"RETR {i}")
+                raw = self.read_multiline(self.pop_socket)
+                from_line = next((line for line in raw.split("\r\n") if line.startswith("From:")), "From: ???")
+                subject_line = next((line for line in raw.split("\r\n") if line.startswith("Subject:")), "Subject: ???")
+                print(f"{i}. {from_line} | {subject_line}")
+
+            print("\nOptions:")
+            print("n - Next page")
+            print("p - Previous page")
+            print("v - View a message")
+            print("d - Delete a message")
+            print("r - Unmark all deletions")
+            print("l - LAST (I Dont know what this does)")
+            print("q - Back to main menu")
+            # Noop is not necessary for our system
+
+            action = input("Choose: ").strip().lower()
+
+            if action == "n":
+                if end_msg < total_msgs:
+                    current_page += 1
+                else:
+                    print("You're on the last page.")
+            elif action == "p":
+                if current_page > 0:
+                    current_page -= 1
+                else:
+                    print("You're on the first page.")
+            elif action == "v":
+                msg = input("Message number to view: ").strip()
+                self.send_and_print(self.pop_socket, f"RETR {msg}")
+                print(self.read_multiline(self.pop_socket))
+            elif action == "d":
+                msg = input("Message number to delete: ").strip()
+                self.send_and_print(self.pop_socket, f"DELE {msg}")
+                print(self.read_response(self.pop_socket).strip())
+            elif action == "r":
+                self.send_and_print(self.pop_socket, "RSET")
+                print(self.read_response(self.pop_socket).strip())
+            elif action == "l":
+                self.send_and_print(self.pop_socket, "LAST")
+                print(self.read_response(self.pop_socket).strip())
+            elif action == "q":
+                self.send_and_print(self.pop_socket, "QUIT")
+                print(self.read_response(self.pop_socket).strip())
+                self.pop_socket.close()
+                break
+            else:
+                print("Invalid option.")
+            
 
 def main():
     client = EmailClient()
