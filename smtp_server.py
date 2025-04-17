@@ -37,15 +37,23 @@ class Server:
         client, addr = self.server_sock.accept()
         client.setblocking(False)
         self.inputs.append(client)
-        self.clients[client] = {"addr": addr, "buf": b"", "current_state": States.INIT, "dst": "", "from": b"", "msg": b""} # track the address, current buffer, and state machine state for the client
+        self.clients[client] = {"addr": addr, "buf": b"", "current_state": States.INIT, "dst": "", "from": b"", "msg": b"", "type": "SMTP"} # track the address, current buffer, and state machine state for the client
+        if addr[1] == 8110:
+            self.clients[client]["type"] = "POP3"
 
     def read_from_client(self, client):
         try:
             data = client.recv(1024)
             self.clients[client]["buf"] += data
-            self.smtp_commands(client)
+            if self.clients[client]["type"] == "SMTP":
+                self.smtp_commands(client)
+            elif self.clients[client]["type"] == "POP3":
+                self.pop_commands(client)
         except(ConnectionResetError):
             self.disconnect(client)
+
+    def pop_commands(self, client_sock):
+        pass
 
     def disconnect(self, client):
         del self.clients[client]
