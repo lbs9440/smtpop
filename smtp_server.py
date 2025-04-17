@@ -35,7 +35,7 @@ class Server:
     def load_accounts(self, filename: str) -> None:
         with open(filename) as f:
             data = json.load(f)
-            self.load_accounts = data
+            self.accounts = data
 
     def new_client(self):
         client, addr = self.server_sock.accept()
@@ -74,6 +74,15 @@ class Server:
             else:
                 commands.append("TEXT")
         return commands
+
+    def verify_account(self, client):
+        return self.accounts[client["username"]] == client["pw"]
+
+    def forward_email(self, client):
+        # do DNS lookup for dst
+        # make Client instance
+        # use that to send to the other server in a subprocess.
+        pass
 
     def smtp_commands(self, client_sock):
         client = self.clients[client_sock]
