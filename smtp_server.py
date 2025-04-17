@@ -7,12 +7,8 @@ import socket
 import json
 import select
 import base64
+import random
 
-"""
-To-Do:
-1. Receive client messages (TCP)
-2. Process client messages
-"""
 class States(Enum):
     INIT = "INIT"
     READY = "READY"
@@ -29,7 +25,7 @@ class Server:
         self.load_accounts("accounts.json")
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setblocking(False)
-        self.server_sock.bind(('127.0.0.1', ))
+        self.server_sock.bind(('127.0.0.1', random.randint(5000, 8000)))
         self.inputs = [self.server_sock]
 
     def load_accounts(self, filename: str) -> None:
