@@ -190,10 +190,13 @@ class EmailClient:
             self.send_and_print(self.pop_socket, "STAT")
             stat = self.read_response(self.pop_socket)
             print(f"Server: {stat.strip()}")
-            count = int(stat.split()[1]) if stat.startswith("+OK") else 0
+            count = int(stat.split()[1]) if stat.startswith("+OK") else -1
 
             if count == 0:
                 print("Inbox is empty.")
+                return
+            elif count == -1:
+                print(f"Error fetching inbox: {stat}")
                 return
 
             print(f"\nYou have {count} messages. Showing first 10:\n")
