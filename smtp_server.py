@@ -76,7 +76,7 @@ class Server:
         return commands
 
     def verify_account(self, client):
-        return self.accounts[client["username"]] == client["pw"]
+        return self.accounts[client["username"].decode()] == client["pw"].decode()
 
     def forward_email(self, client):
         # do DNS lookup for dst
@@ -111,6 +111,9 @@ class Server:
                         if self.verify_account(client):
                             client_sock.send(b"235 2.7.0 Authentication successful")
                             client["state"] = States.READY
+                        else:
+                            client_sock.send(b"535 5.7.8 Authentication credentials invalid")
+                            self.disconnect(client_sock)
                     elif client["state"] == States.DATA:
                         client["msg"] += line
                         if line == ".":
