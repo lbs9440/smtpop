@@ -19,7 +19,7 @@ class EmailClient:
         self.s = None
         self.pop_socket = None
         self.pop_ip = 'localhost'
-        self.pop_port = 110
+        self.pop_port = 8110
 
     def run(self):
         print("Welcome to abeersclass.com Email Client")
@@ -184,28 +184,30 @@ class EmailClient:
     
     def fetch_inbox(self):
         try:
-            pop3_authed = self.pop3_auth()
-            if not pop3_authed:
+            if not self.pop3_auth():
                 return
-            
-            pop_opt = input("STAT- The server returns the total number of messages and total size.\n\
-                    LIST [msg]- If no argument is given, the server returns a multi-line response enumerating each message and its statistics. If an argument is given, the server simply returns the statistics for the message specified by msg or an error message if the message does not exist.\n\
-                    RETR msg- The server returns a multi-line response containing the contents of msg, or an error if the message does not exist.\n\
-                    DELE msg- If msg is valid, the message is marked for deletion and a positive response is returned. If the message does not exist or has already been marked for deletion, the server returns an error.\n\
-                    NOOP- The server simply responds to this command with a positive response.\n\
-                    LAST- The server returns the number of the highest accessed message.\n\
-                    RSET- Any messages marked for deletion are unmarked.\n\
-                    QUIT- Ends the POP3 session, the server enters the update state.\n")
 
-            self.pop3_trans(pop_opt.upper())
-            self.pop3_update()
+            self.send_and_print(self.pop_socket, "STAT")
+            stat = self.read_response(self.pop_socket)
+            print(f"Server: {stat.strip()}")
+            count = int(stat.split()[1]) if stat.startswith("+OK") else 0
 
-            self.pop_socket.close()
-            print("POP3 session closed. Server updating...")
+            if count == 0:
+                print("Inbox is empty.")
+                return
+
+            print(f"\nYou have {count} messages. Showing first 10:\n")
+            for i in range(1, min(11, count + 1)):
+                self.send_and_print(self.pop_socket, f"RETR {i}")
+                raw = self.read_multiline(self.pop_socket)
+                from_line = next((line for line in raw.split("\r\n") if line.startswith("From:")), "From: ???")
+                subject_line = next((line for line in raw.split("\r\n") if line.startswith("Subject:")), "Subject: ???")
+                print(f"{i}. {from_line} | {subject_line}")
+
+            self.pop3_trans(count)
 
         except Exception as e:
-            print(f"Error authenticating with POP3 server: {e}")
-            return
+            print(f"Error fetching inbox: {e}")
     
     def pop3_auth(self):
         try:
@@ -240,49 +242,65 @@ class EmailClient:
             print(f"POP3 error: {e}")
             return False
     
-    def pop3_trans(self, pop_opt):
+    def pop3_trans(self, total_msgs):
+        page_size = 10
+        current_page = 0
+
         while True:
-            cmd = pop_opt.strip().upper()
-            match cmd:
-                case "STAT" | "NOOP" | "LAST" | "RSET":
-                    self.send_and_print(self.pop_socket, cmd)
-                    print(f"Server: {self.read_response(self.pop_socket).strip()}")
+            start_msg = current_page * page_size + 1
+            end_msg = min(start_msg + page_size - 1, total_msgs)
+            print(f"\nShowing messages {start_msg} to {end_msg} of {total_msgs}:\n")
 
-                case "LIST":
-                    msg_num = input("Message number (optional): ").strip()
-                    full_cmd = f"{cmd} {msg_num}" if msg_num else cmd
-                    self.send_and_print(self.pop_socket, full_cmd)
-                    response = self.read_multiline(self.pop_socket)
-                    print(f"Server:\n{response}")
+            for i in range(start_msg, end_msg + 1):
+                self.send_and_print(self.pop_socket, f"RETR {i}")
+                raw = self.read_multiline(self.pop_socket)
+                from_line = next((line for line in raw.split("\r\n") if line.startswith("From:")), "From: ???")
+                subject_line = next((line for line in raw.split("\r\n") if line.startswith("Subject:")), "Subject: ???")
+                print(f"{i}. {from_line} | {subject_line}")
 
-                case "RETR":
-                    msg_num = input("Message number to read: ").strip()
-                    if not msg_num.isdigit():
-                        print("Invalid message number.")
-                        continue
-                    self.send_and_print(self.pop_socket, f"RETR {msg_num}")
-                    response = self.read_multiline(self.pop_socket)
-                    print(f"--- Message {msg_num} ---\n{response}")
+            print("\nOptions:")
+            print("n - Next page")
+            print("p - Previous page")
+            print("v - View a message")
+            print("d - Delete a message")
+            print("r - Unmark all deletions")
+            print("l - LAST (I Dont know what this does)")
+            print("q - Back to main menu")
+            # Noop is not necessary for our system
 
-                case "DELE":
-                    msg_num = input("Message number to delete: ").strip()
-                    if not msg_num.isdigit():
-                        print("Invalid message number.")
-                        continue
-                    self.send_and_print(self.pop_socket, f"DELE {msg_num}")
-                    print(f"Server: {self.read_response(self.pop_socket).strip()}")
+            action = input("Choose: ").strip().lower()
 
-                case "QUIT":
-                    self.send_and_print(self.pop_socket, "QUIT")
-                    print(f"Server: {self.read_response(self.pop_socket).strip()}")
-                    self.pop_socket.close()
-                    print("Disconnected from POP3 server.")
-                    break
-
-                case _:
-                    print("Invalid command.")
-
-            pop_opt = input("\nWhat would you like to do next?\n").strip()
+            if action == "n":
+                if end_msg < total_msgs:
+                    current_page += 1
+                else:
+                    print("You're on the last page.")
+            elif action == "p":
+                if current_page > 0:
+                    current_page -= 1
+                else:
+                    print("You're on the first page.")
+            elif action == "v":
+                msg = input("Message number to view: ").strip()
+                self.send_and_print(self.pop_socket, f"RETR {msg}")
+                print(self.read_multiline(self.pop_socket))
+            elif action == "d":
+                msg = input("Message number to delete: ").strip()
+                self.send_and_print(self.pop_socket, f"DELE {msg}")
+                print(self.read_response(self.pop_socket).strip())
+            elif action == "r":
+                self.send_and_print(self.pop_socket, "RSET")
+                print(self.read_response(self.pop_socket).strip())
+            elif action == "l":
+                self.send_and_print(self.pop_socket, "LAST")
+                print(self.read_response(self.pop_socket).strip())
+            elif action == "q":
+                self.send_and_print(self.pop_socket, "QUIT")
+                print(self.read_response(self.pop_socket).strip())
+                self.pop_socket.close()
+                break
+            else:
+                print("Invalid option.")
             
 
 def main():
