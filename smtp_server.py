@@ -85,10 +85,13 @@ class Server:
                         client["state"] = States.AUTH_USER
                 case "STAT":
                     if client["state"] == States.POP3_TRAN:
-                        total_bytes = 0;
-                        for email in user_emails:
-                            total_bytes += len(email['msg'])
-                        client_sock.sendall((f'+OK {len(user_emails)} {total_bytes}\r\n').encode())
+                        try:
+                            total_bytes = 0;
+                            for email in user_emails:
+                                total_bytes += len(email['msg'])
+                            client_sock.sendall((f'+OK {len(user_emails)} {total_bytes}\r\n').encode())
+                        except AttributeError:
+                            client_sock.sendall(f"-ERROR unable to display inbox stats".encode())
                 case "LIST":
                     if client["state"] == States.POP3_TRAN:
                         parts = line.decode().split()
