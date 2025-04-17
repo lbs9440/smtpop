@@ -23,7 +23,10 @@ class DNS:
             data = data.decode().split(" ")
 
             if data[0].startswith("REQ"):
-                client.sendall(self.table[data[1]].encode())
+                if data[1] in self.table:
+                    client.sendall(self.table[data[1]].encode())
+                else: 
+                    client.sendall("ERROR Could not resolve hostname".encode())
             elif data[0].startswith("UPDATE"):
                 self.table[data[1]] = addr
                 with open("dns_table.json") as f:
