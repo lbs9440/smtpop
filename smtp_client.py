@@ -113,11 +113,21 @@ class EmailClient:
 
 
 
-    def send_email(self):
+    def send_email(self, username="", pw="", to_addr = "", msg = "", dst_addr = (), forward = False):
         try:
+            if forward:
+                self.password_hash = pw
+                try:
+                    self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    self.s.connect(dst_addr)
+                    greeting = self.read_response(self.s)
+                    print(f"Server: {greeting.strip()}")
+                except Exception as e:
+                    print(f"Connection failed: {e}")
+                    return None
             if self.server_auth():
-                from_address = f"{self.username}@{DOMAIN}"
-                to_address = input("To (recipient email): ").strip()
+                from_address = f"{str(self.username if not forward else username)}@{DOMAIN}"
+                to_address = str(to_addr if forward else input("To (recipient email): ").strip())
                 if "@" not in to_address:
                     print("Invalid recipient address.")
                     return
@@ -143,7 +153,7 @@ class EmailClient:
                 print("Compose your email (end with Ctrl+D):")
                 body = prompt("", multiline=True)
 
-                message = f"Subject: {subject}\r\n\r\n{body}\r\n.\r\n"
+                message = str(f"Subject: {subject}\r\n\r\n{body}\r\n.\r\n" if not forward else msg)
                 self.s.sendall(message.encode())
                 print(self.read_response(self.s).strip())
 

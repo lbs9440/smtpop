@@ -6,6 +6,23 @@ Author: Caleb Naeger - cmn4315@rit.edu
 import json
 import socket
 
+def dns_lookup(dns_ip, dns_port, domain):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((dns_ip, dns_port))
+        s.sendall(f"REQ {domain}".encode())
+        ret = s.recv(1024).decode()
+        if not ret.startswith("ERROR"):
+            return ret
+        else:
+            print(f"DNS Couldn't resolve hostname {domain}")
+            return None
+    except Exception as e:
+        print(f"Connection failed: {e}")
+        return None
+
+def dns_update():
+    pass
 
 class DNS:
     def __init__(self) -> None:
