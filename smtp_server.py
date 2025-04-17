@@ -94,8 +94,9 @@ class Server:
             line = input_lines[i]
             match command:
                 case "EHLO" | "HELO":
-                    client['state'] = States.AUTH_INIT
-                    client_sock.send(b"250-smtp-server.abeersclass.com\r\n250-AUTH LOGIN PLAIN\r\n250 Ok\r\n")
+                    if client["state"] == States.INIT:
+                        client['state'] = States.AUTH_INIT
+                        client_sock.send(b"250-smtp-server.abeersclass.com\r\n250-AUTH LOGIN PLAIN\r\n250 Ok\r\n")
                 case "AUTH LOGIN":
                     if client["state"] == States.AUTH_INIT:
                         client_sock.send(b"334 " + base64.b64encode(b"Username:"))
