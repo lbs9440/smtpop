@@ -108,7 +108,7 @@ class EmailClient:
             if self.server_auth():
                 from_address = f"{self.username}@{DOMAIN}"
                 to_address = input("To (recipient email): ").strip()
-                if "@" not in to_address or not to_address.endswith(f"@{DOMAIN}"):
+                if "@" not in to_address:
                     print("Invalid recipient address.")
                     return
 
@@ -155,13 +155,15 @@ class EmailClient:
         return sock.recv(2048).decode()
 
     def read_multiline(self, sock):
-        data = b""
+        lines = []
         while True:
-            chunk = sock.recv(2048)
-            data += chunk
-            if b"\n" in chunk:
+            chunk = sock.recv(2048).decode()
+            lines.append(chunk)
+            if "250 Ok" in chunk:
                 break
-        return data.decode()
+        return "".join(lines)
+
+
 
     def send_and_print(self, sock, msg):
         sock.sendall((msg + "\r\n").encode())
