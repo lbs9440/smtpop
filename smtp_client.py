@@ -22,9 +22,9 @@ class EmailClient:
         self.pop_port = 8110
 
     def run(self):
-        print("Welcome to abeersclass.com Email Client")
+        print("Welcome to Email Client")
         if self.login():
-            print(f"Logged in as {self.username}@{DOMAIN}")
+            print(f"Logged in as {self.username}@{self.domain}")
             self.menu()
         else:
             print("Login failed.")
@@ -54,7 +54,7 @@ class EmailClient:
             return False
         
         try:
-            self.send_and_print(self.s, "EHLO client.abeersclass.com")
+            self.send_and_print(self.s, f"EHLO client.{self.domain}")
             server_response = self.read_multiline(self.s)
             if "250-AUTH LOGIN PLAIN" not in server_response:
                 print("Server does not support AUTH LOGIN.")
@@ -130,7 +130,7 @@ class EmailClient:
                     print(f"Connection failed: {e}")
                     return None
             if self.server_auth():
-                from_address = f"{str(self.username if not forward else username)}@{DOMAIN}"
+                from_address = f"{str(self.username if not forward else username)}@{self.domain}"
                 to_address = str(to_addr if forward else input("To (recipient email): ").strip())
                 if "@" not in to_address:
                     print("Invalid recipient address.")
