@@ -6,6 +6,17 @@ Author: Caleb Naeger - cmn4315@rit.edu
 import json
 import socket
 
+def get_local_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('192.0.0.8', 1027))
+        ip = s.getsockname()[0]
+    except socket.error:
+        return None
+    finally:
+        s.close()
+    return ip
+
 def dns_lookup(dns_ip, dns_port, domain):
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -27,7 +38,7 @@ def dns_update(dns_ip, dns_port, domain, my_ip, my_port):
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((dns_ip, dns_port))
-        s.sendall(f"UPDATE {domain} {my_ip} {my_port}".encode())
+        s.sendall(f"UPDATE {domain} {get_local_ip()} {my_port}".encode())
         s.close()
     except Exception as e:
         print(f"Connection failed: {e}")
