@@ -81,7 +81,7 @@ class Server:
             match command:
                 case "USER":
                     if client["state"] == States.AUTH_USER:
-                        client["username"] = line[5:]
+                        client["username"] = line.decode()[5:]
                         client_sock.sendall((f'+OK {client["username"]}\r\n').encode())
                         client["state"] = States.AUTH_PW
                 case "PASS":
@@ -189,14 +189,12 @@ class Server:
                 commands.append("RETR")
             elif line.startswith("DELE"):
                 commands.append("DELE")
-            elif line.startswith("NOOP"):
-                commands.append("NOOP")
             elif line.startswith("LAST"):
                 commands.append("LAST")
             elif line.startswith("RSET"):
                 commands.append("RSET")
             else:
-                commands.append("TEXT")
+                commands.append("NOOP")
         return commands
 
     def verify_account(self, client):
@@ -237,7 +235,7 @@ class Server:
                 case "EHLO" | "HELO":
                     if client["state"] == States.INIT:
                         client['state'] = States.AUTH_INIT
-                        client_sock.send(f"250-smtp-server{self.server_sock.getsockname()[1]}.abeersclass.com\r\n250-AUTH LOGIN PLAIN\r\n250 Ok\r\n".encode())
+                        client_sock.sendall(f"250-smtp-server{self.server_sock.getsockname()[1]}.abeersclass.com\r\n250-AUTH LOGIN PLAIN\r\n250 Ok\r\n".encode())
                 case "AUTH LOGIN":
                     if client["state"] == States.AUTH_INIT:
                         client_sock.sendall(b"334 " + base64.b64encode(b"Username:"))
