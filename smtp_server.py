@@ -302,7 +302,7 @@ class Server:
                         self.disconnect(client_sock)
                 case "MAIL FROM":
                     if client["state"] == States.READY:
-                        client["from"] = line
+                        client["from"] = line.decode()[11:]
                         client["state"] = States.DEST
                         client_sock.sendall(b"250 Ok\r\n")
                     else:
