@@ -1,16 +1,104 @@
 {
-    "landon": [
-        {
-            "FROM": "andon@abeersclass.com",
-            "msg": "Subject: TEST\r\n\r\ntest\nadsfhkadsf\n\nasdfih\r\n.\r\n"
-        },
-        {
-            "FROM": "landon@abeersclass.com",
-            "msg": "Subject: test\r\n\r\nteklhafsd\nasdfhafsd\na\n\n\r\n.\r\n"
-        },
-        {
-            "FROM": "landon@abeersclass.com",
-            "msg": "Subject: Test number 756\r\n\r\nteafdalj\nafvdskbjn\n\ndfah\n\r\n.\r\n"
-        }
-    ]
+  "landon": [
+    {
+      "FROM": "l.jameson@abeersclass.com",
+      "msg": "Subject: project files\r\n\r\nuploaded to shared drive\ncheck if u can access\n\r\n.\r\n"
+    },
+    {
+      "FROM": "landon@abeersclass.com",
+      "msg": "Subject: dinner?\r\n\r\nstill down for tacos tonight?\nheard they added birria\n\r\n.\r\n"
+    },
+    {
+      "FROM": "elandon@abeersclass.com",
+      "msg": "Subject: u up?\r\n\r\npls tell me u did the reading\ncan’t go in cold again\n\r\n.\r\n"
+    },
+    {
+      "FROM": "landon@abeersclass.com",
+      "msg": "Subject: forgot to submit\r\n\r\ntell me I’m not the only one\npls\n\r\n.\r\n"
+    },
+    {
+      "FROM": "andrew.landon@abeersclass.com",
+      "msg": "Subject: zoom audio\r\n\r\nwas my mic bugging?\nno one responded lol\n\r\n.\r\n"
+    },
+    {
+      "FROM": "landon@abeersclass.com",
+      "msg": "Subject: deadline extended\r\n\r\njust saw the email\nwe’ve got til Friday now\n\r\n.\r\n"
+    },
+    {
+      "FROM": "landon.lee@abeersclass.com",
+      "msg": "Subject: ty again\r\n\r\nthat lab fix worked\nabsolute legend\n\r\n.\r\n"
+    },
+    {
+      "FROM": "landon@abeersclass.com",
+      "msg": "Subject: today’s agenda\r\n\r\n- quiz review\n- finalize slides\n- decide who presents what\n\r\n.\r\n"
+    },
+    {
+      "FROM": "l-dawg@abeersclass.com",
+      "msg": "Subject: bruh\r\n\r\ncheck question 3 again\nit’s a trick one\n\r\n.\r\n"
+    },
+    {
+      "FROM": "landon@abeersclass.com",
+      "msg": "Subject: heads up\r\n\r\nprof is cold calling today\nguess who’s first alphabetically\n\r\n.\r\n"
+    },
+    {
+      "FROM": "landon@abeersclass.com",
+      "msg": "Subject: slides\r\n\r\nmine look mid\nsend yours?\n\r\n.\r\n"
+    },
+    {
+      "FROM": "lj@abeersclass.com",
+      "msg": "Subject: stats class\r\n\r\nwhat even was that proof\nfelt like a fever dream\n\r\n.\r\n"
+    },
+    {
+      "FROM": "landon@abeersclass.com",
+      "msg": "Subject: dog ate my hw\r\n\r\njk it was me\nforgot to save before crash\n\r\n.\r\n"
+    },
+    {
+      "FROM": "l.abeer@abeersclass.com",
+      "msg": "Subject: submission box\r\n\r\nclosed early?\ni swear it said midnight\n\r\n.\r\n"
+    },
+    {
+      "FROM": "landon@abeersclass.com",
+      "msg": "Subject: link pls\r\n\r\nu got the doc open?\ncan’t find it\n\r\n.\r\n"
+    },
+    {
+      "FROM": "landino@abeersclass.com",
+      "msg": "Subject: layout idea\r\n\r\nwhat if we shift the chart left\nand overlay the text block\n\r\n.\r\n"
+    },
+    {
+      "FROM": "landon@abeersclass.com",
+      "msg": "Subject: late but alive\r\n\r\nfinally finished part 4\ngonna crash now\n\r\n.\r\n"
+    },
+    {
+      "FROM": "landonl@abeersclass.com",
+      "msg": "Subject: snow day?\r\n\r\ncampus might close\npls manifest\n\r\n.\r\n"
+    },
+    {
+      "FROM": "landon@abeersclass.com",
+      "msg": "Subject: just checking\r\n\r\nyou good?\nseemed stressed in lab\n\r\n.\r\n"
+    },
+    {
+      "FROM": "landon92@abeersclass.com",
+      "msg": "Subject: ta office hours\r\n\r\nchanged to 2pm\nper his last post\n\r\n.\r\n"
+    },
+    {
+      "FROM": "landon@abeersclass.com",
+      "msg": "Subject: word count\r\n\r\n750 words my foot\nthis is an essay\n\r\n.\r\n"
+    },
+    {
+      "FROM": "landownz@abeersclass.com",
+      "msg": "Subject: printer broke\r\n\r\ncan u print mine too?\ni’ll owe u food\n\r\n.\r\n"
+    },
+    {
+      "FROM": "landon@abeersclass.com",
+      "msg": "Subject: forgot my ID\r\n\r\ncan u swipe me in?\noutside the lab\n\r\n.\r\n"
+    },
+    {
+      "FROM": "landon.zzz@abeersclass.com",
+      "msg": "Subject: vibing\r\n\r\nstudy music recs?\ntoo quiet in here\n\r\n.\r\n"
+    },
+    {
+      "FROM": "landon@abeersclass.com",
+      "msg": "Subject: see u in 5\r\n\r\non my way now\nbring coffee?\n\r\n.\r\n"
+    }
+  ]
 }

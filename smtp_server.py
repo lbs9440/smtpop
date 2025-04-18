@@ -186,11 +186,11 @@ class Server:
                         self.write_emails(client["username"], keep_emails)
                     self.disconnect(client_sock)
 
-    def write_emails(self, username, emails):
+    def write_emails(self, username, newemails):
         emails = {}
         with open("emails.json", 'r') as f:
             emails = json.load(f)
-            emails[username] = emails
+            emails[username] = newemails
         with open("emails.json", 'w') as f:
             json.dump(emails, f, indent=4, ensure_ascii=False)
 

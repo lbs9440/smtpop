@@ -301,7 +301,7 @@ class EmailClient:
                 msg = input("Message number to view: ").strip()
                 self.send_and_print(self.pop_socket, f"RETR {msg}")
                 response = self.read_multiline(self.pop_socket)
-                if not self.isStatusOK(response[0]):
+                if not self.isStatusOK(response):
                     self.pop_socket.close()
                     break
                 print(response)
@@ -309,21 +309,21 @@ class EmailClient:
                 msg = input("Message number to delete: ").strip()
                 self.send_and_print(self.pop_socket, f"DELE {msg}")
                 response = self.read_response(self.pop_socket).strip()
-                if not self.isStatusOK(response[0]):
+                if not self.isStatusOK(response):
                     self.pop_socket.close()
                     break
                 print(response)
             elif action == "r":
                 self.send_and_print(self.pop_socket, "RSET")
                 response = self.read_response(self.pop_socket).strip()
-                if not self.isStatusOK(response[0]):
+                if not self.isStatusOK(response):
                     self.pop_socket.close()
                     break
                 print(response)
             elif action == "l":
                 self.send_and_print(self.pop_socket, "LAST")
                 response = self.read_response(self.pop_socket).strip()
-                if not self.isStatusOK(response[0]):
+                if not self.isStatusOK(response):
                     self.pop_socket.close()
                     break
                 print(response)
