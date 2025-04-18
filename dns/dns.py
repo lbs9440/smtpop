@@ -21,8 +21,13 @@ def dns_lookup(dns_ip, dns_port, domain):
         print(f"Connection failed: {e}")
         return None
 
-def dns_update():
-    pass
+def dns_update(dns_ip, dns_port, domain):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((dns_ip, dns_port))
+        s.sendall(f"UPDATE {domain}".encode())
+    except Exception as e:
+        print(f"Connection failed: {e}")
 
 class DNS:
     def __init__(self) -> None:
