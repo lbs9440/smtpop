@@ -336,3 +336,9 @@ class Server:
                 else:
                     self.read_from_client(sock)
 
+def main():
+    server = Server()
+    server.run()
+
+if __name__ == "__main__":
+    main()
