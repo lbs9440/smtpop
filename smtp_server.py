@@ -28,12 +28,18 @@ class Server:
     def __init__(self, domain = "abeersclass.com", dns_ip = "127.0.0.1") -> None:
         self.clients = {}
         self.load_accounts("accounts.json")
+        port = random.randint(5000, 8000)
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setblocking(False)
-        port = random.randint(5000, 8000)
+        self.server_sock.bind(('0.0.0.0', port))
+        self.server_sock.listen(5)
+        print(f"Server socket bound to port {port}")
         dns.dns.dns_update(dns_ip, 8080, domain, "127.0.0.1", port)
-        self.server_sock.bind(('127.0.0.1', port))
-        self.inputs = [self.server_sock]
+        self.pop_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.pop_sock.setblocking(False)
+        self.pop_sock.bind(('0.0.0.0', 8110))
+        self.pop_sock.listen(5)
+        self.inputs = [self.server_sock, self.pop_sock]
         self.domain = domain
         self.dns_port = 8080
         self.dns_ip = dns_ip
@@ -44,19 +50,21 @@ class Server:
             self.accounts = data
 
     def load_emails(self, username):
-        with open("emails.json") as f:
+        with open("emails.json", "r") as f:
             emails = json.load(f)
             return emails[username]
 
-    def new_client(self):
-        client, addr = self.server_sock.accept()
+    def new_client(self, sock):
+        client, addr = sock.accept()
         client.setblocking(False)
         self.inputs.append(client)
-        self.clients[client] = {"addr": addr, "buffer": b"", "current_state": States.INIT, "dst": "", "from": b"", "msg": b"", "type": "SMTP", "to_delete":[]} # track the address, current buffer, and state machine state for the client
-        if addr[1] == 8110:
+        self.clients[client] = {"addr": addr, "buffer": b"", "state": States.INIT, "dst": "", "from": b"", "msg": b"", "type": "SMTP", "to_delete":[], "username": ""} # track the address, current buffer, and state machine state for the client
+        if sock.getsockname()[1] == 8110:
             self.clients[client]["type"] = "POP3"
-            client.sendall((f'+OK pop3-server{self.server_sock.getsockname()[1]}.abeersclass.com POP3 server ready\r\n').encode())
+            client.sendall(('+OK pop3-server8110.abeersclass.com POP3 server ready\r\n').encode())
             self.clients[client]['state'] = States.AUTH_USER
+        else:
+            client.sendall(f"220 smtp-server{self.server_sock.getsockname()[1]}.abeeersclass.com".encode())
 
     def read_from_client(self, client):
         try:
@@ -72,10 +80,10 @@ class Server:
     def pop_commands(self, client_sock):
         client = self.clients[client_sock]
         input_lines = client['buffer'].split(b"\r\n")
-        if not client['buffer'].endswith(b"\r\n"):
-            client['buffer'] = input_lines[-1] # write unfinished line back to the dict
-            input_lines = input_lines[:-1]
+        client['buffer'] = input_lines[-1] # write unfinished line back to the dict
+        input_lines = input_lines[:-1]
 
+        print(f"received form client, input={input_lines}")
         commands = self.parse_pop3_commands(input_lines)
         user_emails = []
         if client["state"] not in [States.AUTH_USER, States.AUTH_PW]:
@@ -90,7 +98,7 @@ class Server:
                         client["state"] = States.AUTH_PW
                 case "PASS":
                     if client["state"] == States.AUTH_PW:
-                        client["pw"] = line[5:]
+                        client["pw"] = line[5:].decode()
                         if self.verify_account(client):
                             user_emails = self.load_emails(client["username"])
                             client_sock.sendall((f"+OK {client["username"]}'s maildrop has {len(user_emails)} messages ({sum(len(email["msg"]) for email in user_emails)} octets)\r\n").encode())
@@ -136,13 +144,14 @@ class Server:
                 case "RETR":
                     if client["state"] == States.POP3_TRAN:
                         msg_num = line[5:].decode()
-                        if msg_num.isnumeric() and len(user_emails) >= msg_num >= 1:
+                        print(f"In RETR, len(emails = {len(user_emails)}, msgnum = {msg_num})")
+                        if msg_num.isnumeric() and len(user_emails) >= int(msg_num) >= 1:
                             msg_num = int(msg_num.strip())
                             current_email = user_emails[msg_num-1]
                             multiline_response = f"+OK {len(current_email["msg"])} octets\r\n".encode()
-                            multiline_response += f"From: {current_email["FROM"].decode()}\r\n".encode()
+                            multiline_response += f"From: {current_email["FROM"]}\r\n".encode()
                             multiline_response += f"To: {client["username"]}@{self.domain}\r\n".encode()
-                            multiline_response += current_email["msg"]
+                            multiline_response += current_email["msg"].encode()
                             client_sock.sendall(multiline_response)
                     else:
                         client_sock.sendall(b'ERROR Unexpected Command\r\n')
@@ -150,7 +159,7 @@ class Server:
                 case "DELE":
                     if client["state"] == States.POP3_TRAN:
                         msg_num = line[5:].decode()
-                        if msg_num.isnumeric() and len(user_emails) >= msg_num >= 1:
+                        if msg_num.isnumeric() and len(user_emails) >= int(msg_num) >= 1:
                             msg_num = int(msg_num.strip())
                             client["to_delete"].append(msg_num-1)
                             client_sock.sendall((f"+OK message {msg_num} deleted\r\n").encode())
@@ -168,7 +177,7 @@ class Server:
                         client["to_delete"] = []
                     client_sock.sendall((f"+OK maildrop has {len(user_emails)} messages ({sum(len(email["msg"]) for email in user_emails)} octets)").encode())
                 case "QUIT":
-                    client_sock.sendall(f"+OK pop3-server{self.server_sock.getsockname()[1]} POP3 server signing off (maildrop empty)")
+                    client_sock.sendall(f"+OK pop3-server{self.server_sock.getsockname()[1]} POP3 server signing off (maildrop empty)".encode())
                     if client["to_delete"] != []:
                         keep_emails = []
                         for i in range(len(user_emails)):
@@ -178,9 +187,11 @@ class Server:
                     self.disconnect(client_sock)
 
     def write_emails(self, username, emails):
-        with open("emails.json", 'rw') as f:
+        emails = {}
+        with open("emails.json", 'r') as f:
             emails = json.load(f)
             emails[username] = emails
+        with open("emails.json", 'w') as f:
             json.dump(emails, f, indent=4, ensure_ascii=False)
 
     def disconnect(self, client):
@@ -191,6 +202,8 @@ class Server:
     def parse_commands(self, lines) -> list[str]:
         commands = []
         for line in lines:
+            line = line.decode()
+            print(f"line={line}")
             if line.startswith("EHLO") or line.startswith("HELO"):
                 commands.append("EHLO")
             elif line.startswith("AUTH LOGIN"):
@@ -210,6 +223,7 @@ class Server:
     def parse_pop3_commands(self, lines) -> list[str]:
         commands = []
         for line in lines:
+            line = line.decode()
             if line.startswith("USER"):
                 commands.append("USER")
             elif line.startswith("PASS"):
@@ -233,11 +247,13 @@ class Server:
         return commands
 
     def verify_account(self, client):
-        return self.accounts[client["username"]] == client["pw"].decode()
+        return self.accounts[client["username"]] == client["pw"]
 
     def update_emails(self, client):
-        with open("emails.json", 'rw') as f:
+        emails = {}
+        with open("emails.json", 'r') as f:
             emails = json.load(f)
+        with open("emails.json", 'w') as f:
             if client["username"] not in emails:
                 emails[client["username"]] = []
             emails[client["username"]].append({"FROM": client["from"], "msg": client['msg']})
@@ -245,13 +261,15 @@ class Server:
 
     def forward_email(self, client_sock):
         client = self.clients[client_sock]
-        to_domain = client["dst"].split("@")[-1]
+        to_domain = client["dst"].split(b"@")[-1].decode()
         if to_domain == self.domain:
             self.update_emails(client)
         else:
             # do DNS lookup for dst
             dst_addr = dns.dns.dns_lookup(self.dns_ip, self.dns_port, to_domain)
             if dst_addr:
+                dst_addr = dst_addr.split(" ")
+                dst_addr = (dst_addr[0], int(dst_addr[1]))
                 # make Client instance
                 sender = smtp_client.EmailClient()
                 # use that to send to the other server in a subprocess.
@@ -260,11 +278,12 @@ class Server:
     def smtp_commands(self, client_sock):
         client = self.clients[client_sock]
         input_lines = client['buffer'].split(b"\r\n")
-        if not client['buffer'].endswith(b"\r\n"):
-            client['buffer'] = input_lines[-1] # write unfinished line back to the dict
-            input_lines = input_lines[:-1]
+        client['buffer'] = input_lines[-1] # write unfinished line back to the dict
+        input_lines = input_lines[:-1]
+        print(f"received form client, input={input_lines}")
         commands = self.parse_commands(input_lines)
         for i, command in enumerate(commands):
+            print(f"received command {command}")
             line = input_lines[i]
             match command:
                 case "EHLO" | "HELO":
@@ -283,11 +302,11 @@ class Server:
                         self.disconnect(client_sock)
                 case "TEXT":
                     if client["state"] == States.AUTH_USER:
-                        client["username"] = base64.b64decode(line.decode())
+                        client["username"] = base64.b64decode(line.decode()).decode()
                         client_sock.sendall(b"334 " + base64.b64encode(b"Password:"))
                         client["state"] = States.AUTH_PW
                     elif client["state"] == States.AUTH_PW:
-                        client["pw"] = line
+                        client["pw"] = base64.b64decode(line.decode()).decode()
                         if self.verify_account(client):
                             client_sock.sendall(b"235 2.7.0 Authentication successful")
                             client["state"] = States.READY
@@ -296,15 +315,17 @@ class Server:
                             self.disconnect(client_sock)
                     elif client["state"] == States.DATA:
                         client["msg"] += line + b"\r\n"
-                        if line == ".":
+                        print(f"Added line to message: {line}")
+                        if line == b".":
                             client_sock.sendall(b"250 Ok: queued")
+                            client["msg"] = client["msg"].decode()
                             self.forward_email(client_sock)
                     else:
                         client_sock.sendall(b'-ERROR Unexpected Command\r\n')
                         self.disconnect(client_sock)
                 case "MAIL FROM":
                     if client["state"] == States.READY:
-                        client["from"] = line.decode()[11:]
+                        client["from"] = line.decode()[10:]
                         client["state"] = States.DEST
                         client_sock.sendall(b"250 Ok\r\n")
                     else:
@@ -328,13 +349,18 @@ class Server:
                     self.disconnect(client_sock)
 
     def run(self):
-        while(True):
-            readable_socks, _, _ = select.select(self.inputs, [], [])
-            for sock in readable_socks:
-                if sock is self.server_sock:
-                    self.new_client()
-                else:
-                    self.read_from_client(sock)
+        try:
+            while(True):
+                readable_socks, _, _ = select.select(self.inputs, [], [])
+                for sock in readable_socks:
+                    if sock in [self.server_sock, self.pop_sock]:
+                        self.new_client(sock)
+                    else:
+                        self.read_from_client(sock)
+        except Exception as e:
+            self.server_sock.close()
+            self.pop_sock.close()
+            raise e
 
 def main():
     server = Server()

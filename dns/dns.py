@@ -26,39 +26,43 @@ def dns_lookup(dns_ip, dns_port, domain):
 def dns_update(dns_ip, dns_port, domain, my_ip, my_port):
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.bind((my_ip, my_port))
         s.connect((dns_ip, dns_port))
-        s.sendall(f"UPDATE {domain}".encode())
+        s.sendall(f"UPDATE {domain} {my_ip} {my_port}".encode())
         s.close()
     except Exception as e:
         print(f"Connection failed: {e}")
 
 class DNS:
     def __init__(self) -> None:
-        with open("dns_table.json") as f:
+        with open("dns_table.json", "r") as f:
             self.table = json.load(f)
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind(("127.0.0.1", 8080))
 
 
     def run(self):
-        while(True):
-            self.socket.listen()
-            client, addr = self.socket.accept()
-            data = client.recv(1024)
-            data = data.decode().split(" ")
+        try:
+            while(True):
+                self.socket.listen()
+                client, addr = self.socket.accept()
+                data = client.recv(1024)
+                data = data.decode().split(" ")
 
-            if data[0].startswith("REQ"):
-                if data[1] in self.table:
-                    client.sendall(self.table[data[1]].encode())
-                else: 
-                    client.sendall("ERROR Could not resolve hostname".encode())
-            elif data[0].startswith("UPDATE"):
-                self.table[data[1]] = addr
-                with open("dns_table.json") as f:
-                    json.dump(self.table, f, indent=4, ensure_ascii=False)
+                if data[0].startswith("REQ"):
+                    if data[1] in self.table:
+                        client.sendall(f"{self.table[data[1]][0]} {self.table[data[1]][1]}".encode())
+                    else: 
+                        client.sendall("ERROR Could not resolve hostname".encode())
+                elif data[0].startswith("UPDATE"):
+                    self.table[data[1]] = (data[2], int(data[3]))
+                    with open("dns_table.json", "w") as f:
+                        json.dump(self.table, f, indent=4, ensure_ascii=False)
 
-            client.close()
+                client.close()
+                print("Client closed")
+        except Exception as e:
+            self.socket.close()
+            raise e
 
 def main():
     dns = DNS()

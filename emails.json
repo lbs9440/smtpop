@@ -1,0 +1,16 @@
+{
+    "landon": [
+        {
+            "FROM": "andon@abeersclass.com",
+            "msg": "Subject: TEST\r\n\r\ntest\nadsfhkadsf\n\nasdfih\r\n.\r\n"
+        },
+        {
+            "FROM": "landon@abeersclass.com",
+            "msg": "Subject: test\r\n\r\nteklhafsd\nasdfhafsd\na\n\n\r\n.\r\n"
+        },
+        {
+            "FROM": "landon@abeersclass.com",
+            "msg": "Subject: Test number 756\r\n\r\nteafdalj\nafvdskbjn\n\ndfah\n\r\n.\r\n"
+        }
+    ]
+}

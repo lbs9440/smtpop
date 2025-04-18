@@ -64,7 +64,7 @@ class EmailClient:
             self.send_and_print(self.s, "AUTH LOGIN")
             username_prompt = self.read_response(self.s).strip()
             if not username_prompt.startswith("334"):
-                print("Expected username prompt.")
+                print(f"Expected username prompt. {username_prompt}")
                 self.s.close()
                 return False
 
@@ -77,7 +77,7 @@ class EmailClient:
                 self.s.close()
                 return False
 
-            encoded_pass = base64.b64encode(self.password_hash.encode()).decode()
+            encoded_pass = base64.b64encode(str(self.password_hash).encode()).decode()
             self.send_and_print(self.s, encoded_pass)
 
             auth_response = self.read_response(self.s).strip()
@@ -97,7 +97,9 @@ class EmailClient:
             self.username, self.domain = user_input.split("@", 1)
             addr = dns.dns.dns_lookup(self.dns_ip, 8080, self.domain)
             if addr:
-                self.smtp_ip, self.smtp_port = addr[0], addr[1]
+                addr = addr.split(" ")
+                self.smtp_ip, self.smtp_port = addr[0], int(addr[1])
+                print(f"DNS lookup found server on port {self.smtp_port}")
                 self.pop_ip = self.smtp_ip
             else:
                 return False
@@ -105,7 +107,7 @@ class EmailClient:
             return False
         
         password = input("Enter password: ").strip()
-        self.hashed_password = self.hash_password(password)
+        self.password_hash = self.hash_password(password)
 
         if self.server_auth():
             self.send_and_print(self.s, "QUIT") 
@@ -143,7 +145,6 @@ class EmailClient:
 
                 # RCPT TO
                 self.send_and_print(self.s, f"RCPT TO:{to_address}")
-                print(self.read_response(self.s).strip())
                 response = self.read_response(self.s).strip()
                 print(response)
                 if not response.startswith("250"):
@@ -159,12 +160,15 @@ class EmailClient:
 
                 # Compose message
                 subject = input("Subject: ")
-                print("Compose your email (end with Ctrl+D):")
+                print("Compose your email (end with ESC then Enter):")
                 body = prompt("", multiline=True)
 
                 message = str(f"Subject: {subject}\r\n\r\n{body}\r\n.\r\n" if not forward else msg)
                 self.s.sendall(message.encode())
                 print(self.read_response(self.s).strip())
+
+                self.send_and_print(self.s, "QUIT")
+                self.read_response(self.s)
 
         except Exception as e:
             print("Error sending email:", e)
@@ -172,6 +176,7 @@ class EmailClient:
     def connect(self):
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            print(f"trying to connect to: {self.smtp_ip}, {self.smtp_port}")
             s.connect((self.smtp_ip, self.smtp_port))
             greeting = self.read_response(s)
             print(f"Server: {greeting.strip()}")
@@ -188,7 +193,7 @@ class EmailClient:
         while True:
             chunk = sock.recv(1024).decode()
             lines.append(chunk)
-            if "250 Ok" in chunk:
+            if "250 Ok" in chunk or "\n.\r\n" in chunk:
                 break
         return "".join(lines)
 
@@ -216,15 +221,6 @@ class EmailClient:
             elif count == -1:
                 print(f"Error fetching inbox: {stat}")
                 return
-
-            print(f"\nYou have {count} messages. Showing first 10:\n")
-            for i in range(1, min(11, count + 1)):
-                self.send_and_print(self.pop_socket, f"RETR {i}")
-                raw = self.read_multiline(self.pop_socket)
-                from_line = next((line for line in raw.split("\r\n") if line.startswith("From:")), "From: ???")
-                subject_line = next((line for line in raw.split("\r\n") if line.startswith("Subject:")), "Subject: ???")
-                print(f"{i}. {from_line} | {subject_line}")
-
             self.pop3_trans(count)
 
         except Exception as e:
@@ -249,7 +245,7 @@ class EmailClient:
                 self.pop_socket.close()
                 return False
 
-            self.send_and_print(self.pop_socket, "PASS " + self.hashed_password)
+            self.send_and_print(self.pop_socket, "PASS " + self.password_hash)
             pass_response = self.read_response(self.pop_socket)
             print(f"Server: {pass_response.strip()}")
             if not pass_response.startswith(f"+OK {self.username}"):
