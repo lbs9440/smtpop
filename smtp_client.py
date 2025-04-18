@@ -9,6 +9,7 @@ import dns.dns
 from prompt_toolkit import prompt  # for multiline input
 
 DOMAIN = 'abeersclass.com'
+DEBUG_MODE = True
 
 class EmailClient:
     def __init__(self, dns_ip = "192.168.124.32"):
@@ -86,7 +87,7 @@ class EmailClient:
             self.send_and_print(self.s, encoded_pass)
 
             auth_response = self.read_response(self.s).strip()
-            print(f"Server: {auth_response}")
+            print(f"Server: {auth_response}") if DEBUG_MODE else ""
 
             if auth_response.startswith("235"):
                 return True
@@ -105,7 +106,7 @@ class EmailClient:
             if addr:
                 addr = addr.split(" ")
                 self.smtp_ip, self.smtp_port = addr[0], int(addr[1])
-                print(f"DNS lookup found server on port {self.smtp_port}")
+                print(f"DNS lookup found server on port {self.smtp_port}") if DEBUG_MODE else ""
                 self.pop_ip = self.smtp_ip
             else:
                 return False
@@ -134,7 +135,7 @@ class EmailClient:
                     self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     self.s.connect(dst_addr)
                     greeting = self.read_response(self.s)
-                    print(f"Server: {greeting.strip()}")
+                    print(f"Server: {greeting.strip()}") if DEBUG_MODE else ""
                 except Exception as e:
                     print(f"Connection failed: {e}")
                     return None
@@ -149,21 +150,21 @@ class EmailClient:
                 # MAIL FROM
                 self.send_and_print(self.s, f"MAIL FROM:{from_address}")
                 response = self.read_response(self.s).strip()
-                print(response)
+                print(response) if DEBUG_MODE else ""
                 if not response.startswith("250"):
                     return
 
                 # RCPT TO
                 self.send_and_print(self.s, f"RCPT TO:{to_address}")
                 response = self.read_response(self.s).strip()
-                print(response)
+                print(response) if DEBUG_MODE else ""
                 if not response.startswith("250"):
                     return
 
                 # DATA
                 self.send_and_print(self.s, "DATA")
                 response = self.read_response(self.s).strip()
-                print(response)
+                print(response) if DEBUG_MODE else ""
                 if not response.startswith("354"):
                     print("Server not ready for data.")
                     return
@@ -187,10 +188,10 @@ class EmailClient:
     def connect(self):
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            print(f"trying to connect to: {self.smtp_ip}, {self.smtp_port}")
+            print(f"trying to connect to: {self.smtp_ip}, {self.smtp_port}") if DEBUG_MODE else ""
             s.connect((self.smtp_ip, self.smtp_port))
             greeting = self.read_response(s)
-            print(f"Server: {greeting.strip()}")
+            print(f"Server: {greeting.strip()}") if DEBUG_MODE else ""
             return s
         except Exception as e:
             print(f"Connection failed: {e}")
@@ -212,7 +213,8 @@ class EmailClient:
 
     def send_and_print(self, sock, msg):
         sock.sendall((msg + "\r\n").encode())
-        print(f"> {msg}")
+        if DEBUG_MODE:
+            print(f"> {msg}")
 
     def hash_password(self, password):
         return hashlib.sha256(password.encode()).hexdigest()
@@ -224,7 +226,7 @@ class EmailClient:
 
             self.send_and_print(self.pop_socket, "STAT")
             stat = self.read_response(self.pop_socket)
-            print(f"Server: {stat.strip()}")
+            print(f"Server: {stat.strip()}") if DEBUG_MODE else ""
             count = int(stat.split()[1]) if stat.startswith("+OK") else -1
 
             if count == 0:
@@ -242,7 +244,7 @@ class EmailClient:
             self.pop_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.pop_socket.connect((self.pop_ip, self.pop_port))
             ready = self.read_response(self.pop_socket)
-            print(f"Server: {ready.strip()}")
+            print(f"Server: {ready.strip()}") if DEBUG_MODE else ""
             if not ready.startswith("+OK"):
                 print("POP3 server not ready.")
                 self.pop_socket.close()
@@ -250,7 +252,7 @@ class EmailClient:
 
             self.send_and_print(self.pop_socket, "USER " + self.username)
             user_response = self.read_response(self.pop_socket)
-            print(f"Server: {user_response.strip()}")
+            print(f"Server: {user_response.strip()}") if DEBUG_MODE else ""
             if not user_response.startswith(f"+OK {self.username}"):
                 print("Error with username.")
                 self.pop_socket.close()
@@ -258,7 +260,7 @@ class EmailClient:
 
             self.send_and_print(self.pop_socket, "PASS " + self.password_hash)
             pass_response = self.read_response(self.pop_socket)
-            print(f"Server: {pass_response.strip()}")
+            print(f"Server: {pass_response.strip()}") if DEBUG_MODE else ""
             if not pass_response.startswith(f"+OK {self.username}"):
                 print("Error with password.")
                 self.pop_socket.close()
@@ -292,7 +294,6 @@ class EmailClient:
             print("v - View a message")
             print("d - Delete a message")
             print("r - Unmark all deletions")
-            print("l - LAST (I Dont know what this does)")
             print("q - Back to main menu")
             # Noop is not necessary for our system
 
@@ -323,21 +324,16 @@ class EmailClient:
                 if not self.isStatusOK(response):
                     self.pop_socket.close()
                     break
-                print(response)
+                print(f"Email {msg} marked for deletion.")
+                print(response) if DEBUG_MODE else ""
             elif action == "r":
                 self.send_and_print(self.pop_socket, "RSET")
                 response = self.read_response(self.pop_socket).strip()
                 if not self.isStatusOK(response):
                     self.pop_socket.close()
                     break
-                print(response)
-            elif action == "l":
-                self.send_and_print(self.pop_socket, "LAST")
-                response = self.read_response(self.pop_socket).strip()
-                if not self.isStatusOK(response):
-                    self.pop_socket.close()
-                    break
-                print(response)
+                print("All emails unmarked from deletion for this session.")
+                print(response) if DEBUG_MODE else ""
             elif action == "q":
                 self.send_and_print(self.pop_socket, "QUIT")
                 print(self.read_response(self.pop_socket).strip())
