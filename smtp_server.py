@@ -30,7 +30,9 @@ class Server:
         self.load_accounts("accounts.json")
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setblocking(False)
-        self.server_sock.bind(('127.0.0.1', random.randint(5000, 8000)))
+        port = random.randint(5000, 8000)
+        dns.dns.dns_update(dns_ip, 8080, domain, "127.0.0.1", port)
+        self.server_sock.bind(('127.0.0.1', port))
         self.inputs = [self.server_sock]
         self.domain = domain
         self.dns_port = 8080
