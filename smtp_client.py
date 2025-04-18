@@ -338,7 +338,7 @@ class EmailClient:
                 print("Invalid option.")
             
     def isStatusOK(self, msg):
-        return msg.startswith() == "+OK"
+        return msg.startswith("+OK") 
 
 
 def main():
