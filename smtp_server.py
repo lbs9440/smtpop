@@ -93,9 +93,12 @@ class Server:
                             user_emails = self.load_emails(client["username"])
                             client_sock.sendall((f"+OK {client["username"]}'s maildrop has {len(user_emails)} messages ({sum(len(email["msg"]) for email in user_emails)} octets)\r\n").encode())
                             client["state"] = States.POP3_TRAN
+                        else:
+                            client_sock.sendall(b'ERROR Authentication credentials invalid\r\n')
+                            client["state"] = States.AUTH_USER
                     else:
-                        client_sock.sendall(b'-ERROR Authentication credentials invalid\r\n')
-                        client["state"] = States.AUTH_USER
+                        client_sock.sendall(b'ERROR Unexpected Command\r\n')
+                        self.disconnect(client_sock)
                 case "STAT":
                     if client["state"] == States.POP3_TRAN:
                         try:
@@ -104,7 +107,10 @@ class Server:
                                 total_bytes += len(email['msg'])
                             client_sock.sendall((f'+OK {len(user_emails)} {total_bytes}\r\n').encode())
                         except AttributeError:
-                            client_sock.sendall("-ERROR unable to display inbox stats".encode())
+                            client_sock.sendall("ERROR unable to display inbox stats".encode())
+                    else:
+                        client_sock.sendall(b'ERROR Unexpected Command\r\n')
+                        self.disconnect(client_sock) 
                 case "LIST":
                     if client["state"] == States.POP3_TRAN:
                         parts = line.decode().split()
@@ -122,6 +128,9 @@ class Server:
                                 final_str += f"{i+1} {len(email)}\r\n"
                             final_str += ".\r\n"
                             client_sock.sendall(final_str.encode())
+                    else:
+                        client_sock.sendall(b'ERROR Unexpected Command\r\n')
+                        self.disconnect(client_sock) 
                 case "RETR":
                     if client["state"] == States.POP3_TRAN:
                         msg_num = line[5:].decode()
@@ -133,6 +142,9 @@ class Server:
                             multiline_response += f"To: {client["username"]}@{self.domain}\r\n".encode()
                             multiline_response += current_email["msg"]
                             client_sock.sendall(multiline_response)
+                    else:
+                        client_sock.sendall(b'ERROR Unexpected Command\r\n')
+                        self.disconnect(client_sock) 
                 case "DELE":
                     if client["state"] == States.POP3_TRAN:
                         msg_num = line[5:].decode()
@@ -140,9 +152,15 @@ class Server:
                             msg_num = int(msg_num.strip())
                             client["to_delete"].append(msg_num-1)
                             client_sock.sendall((f"+OK message {msg_num} deleted\r\n").encode())
+                    else:
+                        client_sock.sendall(b'ERROR Unexpected Command\r\n')
+                        self.disconnect(client_sock)
                 case "NOOP":
                     if client["state"] == States.POP3_TRAN:
                         client_sock.sendall(b"+OK\r\n")
+                    else:
+                        client_sock.sendall(b'ERROR Unexpected Command\r\n')
+                        self.disconnect(client_sock)
                 case "RSET":
                     if client["state"] == States.POP3_TRAN:
                         client["to_delete"] = []
@@ -251,10 +269,16 @@ class Server:
                     if client["state"] == States.INIT:
                         client['state'] = States.AUTH_INIT
                         client_sock.sendall(f"250-smtp-server{self.server_sock.getsockname()[1]}.abeersclass.com\r\n250-AUTH LOGIN PLAIN\r\n250 Ok\r\n".encode())
+                    else:
+                        client_sock.sendall(b'ERROR Unexpected Command\r\n')
+                        self.disconnect(client_sock)
                 case "AUTH LOGIN":
                     if client["state"] == States.AUTH_INIT:
                         client_sock.sendall(b"334 " + base64.b64encode(b"Username:"))
                         client["state"] = States.AUTH_USER
+                    else:
+                        client_sock.sendall(b'-ERROR Unexpected Command\r\n')
+                        self.disconnect(client_sock)
                 case "TEXT":
                     if client["state"] == States.AUTH_USER:
                         client["username"] = base64.b64decode(line.decode())
@@ -273,19 +297,31 @@ class Server:
                         if line == ".":
                             client_sock.sendall(b"250 Ok: queued")
                             self.forward_email(client_sock)
+                    else:
+                        client_sock.sendall(b'-ERROR Unexpected Command\r\n')
+                        self.disconnect(client_sock)
                 case "MAIL FROM":
                     if client["state"] == States.READY:
                         client["from"] = line
                         client["state"] = States.DEST
                         client_sock.sendall(b"250 Ok\r\n")
+                    else:
+                        client_sock.sendall(b'-ERROR Unexpected Command\r\n')
+                        self.disconnect(client_sock)
                 case "RCPT TO":
                     if client["state"] == States.DEST:
                         client["dst"] = line[8:]
                         client["state"] = States.DATA
                         client_sock.sendall(b"250 Ok\r\n")
+                    else:
+                        client_sock.sendall(b'-ERROR Unexpected Command\r\n')
+                        self.disconnect(client_sock)
                 case "DATA":
                     if client["state"] == States.DATA:
                         client_sock.sendall(b"354 End data with <CR><LF>.<CR><LF>")
+                    else:
+                        client_sock.sendall(b'-ERROR Unexpected Command\r\n')
+                        self.disconnect(client_sock)
                 case "QUIT":
                     self.disconnect(client_sock)
 
