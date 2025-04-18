@@ -25,8 +25,6 @@ class States(Enum):
     DATA = "DATA"
     POP3_TRAN = "POP3_TRANSACTION"
 
-SERVER_PASSWORD = "pass"
-
 class Server:
     def __init__(self, domain = "email.com", dns_ip = "192.168.124.32") -> None:
         self.clients = {}
