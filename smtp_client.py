@@ -1,5 +1,5 @@
 """
-SMTP Client implementation
+SMTP Client implementation 
 Author: Landon Spitzer - lbs9440@rit.edu
 """
 import socket
@@ -11,7 +11,7 @@ from prompt_toolkit import prompt  # for multiline input
 DOMAIN = 'abeersclass.com'
 
 class EmailClient:
-    def __init__(self, dns_ip = "127.0.0.1"):
+    def __init__(self, dns_ip = "192.168.124.32"):
         self.dns_ip = dns_ip
         self.username = ""
         self.password = ""
@@ -49,8 +49,10 @@ class EmailClient:
                 print("Invalid choice.")
 
     def server_auth(self):
+        print("HERE --------------------------> ", self.s)
         if self.s is None:
             self.s = self.connect()
+
         if not self.s:
             return False
         
@@ -61,6 +63,7 @@ class EmailClient:
                 print("Server does not support AUTH LOGIN.")
                 self.s.close()
                 self.s = None
+                self.s = None
                 return False
 
             self.send_and_print(self.s, "AUTH LOGIN")
@@ -68,6 +71,7 @@ class EmailClient:
             if not username_prompt.startswith("334"):
                 print(f"Expected username prompt. {username_prompt}")
                 self.s.close()
+                self.s = None
                 self.s = None
                 return False
 
@@ -78,6 +82,7 @@ class EmailClient:
             if not password_prompt.startswith("334"):
                 print("Expected password prompt.")
                 self.s.close()
+                self.s = None
                 self.s = None
                 return False
 
@@ -94,6 +99,7 @@ class EmailClient:
             print("Login error:", e)
             self.s.close()
             self.s = None
+            raise e
             return False
         
     def login(self):
@@ -119,13 +125,15 @@ class EmailClient:
             self.read_response(self.s)  
             self.s.close()
             self.s = None
+            self.s = None
             return True
 
 
 
-    def send_email(self, self_username = "", username="", pw="", to_addr = "", msg = "", dst_addr = (), forward = False, domain = ""):
+    def send_email(self, self_username="", username="", pw="", to_addr = "", msg = "", dst_addr = (), forward = False, domain=""):
         try:
             if forward:
+                self.domain = domain
                 self.username = self_username
                 self.password_hash = pw
                 self.domain = domain
@@ -137,6 +145,7 @@ class EmailClient:
                 except Exception as e:
                     print(f"Connection failed: {e}")
                     return None
+                
             if self.server_auth():
                 from_address = f"{str(self.username if not forward else username)}@{self.domain}"
                 to_address = str(to_addr if forward else input("To (recipient email): ").strip())
@@ -171,7 +180,13 @@ class EmailClient:
                     subject = input("Subject: ")
                     print("Compose your email (end with ESC then Enter):")
                     body = prompt("", multiline=True)
+                if not forward:
+                    # Compose message
+                    subject = input("Subject: ")
+                    print("Compose your email (end with ESC then Enter):")
+                    body = prompt("", multiline=True)
 
+                message = str(msg if forward else f"Subject: {subject}\r\n\r\n{body}\r\n.\r\n")
                 message = str(msg if forward else f"Subject: {subject}\r\n\r\n{body}\r\n.\r\n")
                 self.s.sendall(message.encode())
                 print(self.read_response(self.s).strip())
@@ -181,6 +196,7 @@ class EmailClient:
 
         except Exception as e:
             print("Error sending email:", e)
+            raise e
 
     def connect(self):
         try:

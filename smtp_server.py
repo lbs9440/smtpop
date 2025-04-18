@@ -12,6 +12,8 @@ import dns.dns
 import smtp_client
 import subprocess
 
+SERVER_PASSWORD = 'pass'
+
 class States(Enum):
     INIT = "INIT"
     READY = "READY"
@@ -26,7 +28,7 @@ class States(Enum):
 SERVER_PASSWORD = "pass"
 
 class Server:
-    def __init__(self, domain = "abeersclass.com", dns_ip = "127.0.0.1") -> None:
+    def __init__(self, domain = "email.com", dns_ip = "192.168.124.32") -> None:
         self.clients = {}
         self.load_accounts("accounts.json")
         port = random.randint(5000, 8000)
@@ -62,7 +64,7 @@ class Server:
         self.clients[client] = {"addr": addr, "buffer": b"", "state": States.INIT, "dst": "", "from": b"", "msg": b"", "type": "SMTP", "to_delete":[], "username": ""} # track the address, current buffer, and state machine state for the client
         if sock.getsockname()[1] == 8110:
             self.clients[client]["type"] = "POP3"
-            client.sendall(('+OK pop3-server8110.abeersclass.com POP3 server ready\r\n').encode())
+            client.sendall((f'+OK pop3-server8110.{self.domain} POP3 server ready\r\n').encode())
             self.clients[client]['state'] = States.AUTH_USER
         else:
             client.sendall(f"220 smtp-server{self.server_sock.getsockname()[1]}.abeeersclass.com".encode())
@@ -258,6 +260,9 @@ class Server:
             if client["dst"].split(b"@")[0].decode() not in emails:
                 emails[client["dst"].split(b"@")[0].decode()] = []
             emails[client["dst"].split(b"@")[0].decode()].append({"FROM": client["from"], "msg": client['msg']})
+            if client["dst"].split(b"@")[0].decode() not in emails:
+                emails[client["dst"].split(b"@")[0].decode()] = []
+            emails[client["dst"].split(b"@")[0].decode()].append({"FROM": client["from"], "msg": client['msg']})
             json.dump(emails, f, indent=4, ensure_ascii=False)
 
     def forward_email(self, client_sock):
@@ -275,8 +280,8 @@ class Server:
                 dst_addr = (dst_addr[0], int(dst_addr[1]))
                 # make Client instance
                 sender = smtp_client.EmailClient()
-                # use that to send to the other server
-                sender.send_email(self_username= "server", username=client["from"].split("@")[0], pw=SERVER_PASSWORD, to_addr=client["dst"].decode(), msg = client["msg"], dst_addr = dst_addr, forward=True, domain = self.domain)
+                # use that to send to the other server in a subprocess.
+                sender.send_email(self_username="server", username=client["from"].split("@")[0], pw=SERVER_PASSWORD, to_addr=client["dst"].decode(), msg = client["msg"], dst_addr = dst_addr, forward=True, domain=self.domain)
 
     def smtp_commands(self, client_sock):
         client = self.clients[client_sock]
@@ -292,7 +297,7 @@ class Server:
                 case "EHLO" | "HELO":
                     if client["state"] == States.INIT:
                         client['state'] = States.AUTH_INIT
-                        client_sock.sendall(f"250-smtp-server{self.server_sock.getsockname()[1]}.abeersclass.com\r\n250-AUTH LOGIN PLAIN\r\n250 Ok\r\n".encode())
+                        client_sock.sendall(f"250-smtp-server{self.server_sock.getsockname()[1]}.{self.domain}\r\n250-AUTH LOGIN PLAIN\r\n250 Ok\r\n".encode())
                     else:
                         client_sock.sendall(b'ERROR Unexpected Command\r\n')
                         self.disconnect(client_sock)
