@@ -173,11 +173,6 @@ class EmailClient:
                     subject = input("Subject: ")
                     print("Compose your email (end with ESC then Enter):")
                     body = prompt("", multiline=True)
-                if not forward:
-                    # Compose message
-                    subject = input("Subject: ")
-                    print("Compose your email (end with ESC then Enter):")
-                    body = prompt("", multiline=True)
 
                 message = str(msg if forward else f"Subject: {subject}\r\n\r\n{body}\r\n.\r\n")
                 self.s.sendall(message.encode())
