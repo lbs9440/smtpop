@@ -49,7 +49,6 @@ class EmailClient:
                 print("Invalid choice.")
 
     def server_auth(self):
-        print("HERE --------------------------> ", self.s)
         if self.s is None:
             self.s = self.connect()
 
@@ -63,7 +62,6 @@ class EmailClient:
                 print("Server does not support AUTH LOGIN.")
                 self.s.close()
                 self.s = None
-                self.s = None
                 return False
 
             self.send_and_print(self.s, "AUTH LOGIN")
@@ -71,7 +69,6 @@ class EmailClient:
             if not username_prompt.startswith("334"):
                 print(f"Expected username prompt. {username_prompt}")
                 self.s.close()
-                self.s = None
                 self.s = None
                 return False
 
@@ -82,7 +79,6 @@ class EmailClient:
             if not password_prompt.startswith("334"):
                 print("Expected password prompt.")
                 self.s.close()
-                self.s = None
                 self.s = None
                 return False
 
@@ -99,7 +95,6 @@ class EmailClient:
             print("Login error:", e)
             self.s.close()
             self.s = None
-            raise e
             return False
         
     def login(self):
@@ -125,7 +120,6 @@ class EmailClient:
             self.read_response(self.s)  
             self.s.close()
             self.s = None
-            self.s = None
             return True
 
 
@@ -136,7 +130,6 @@ class EmailClient:
                 self.domain = domain
                 self.username = self_username
                 self.password_hash = pw
-                self.domain = domain
                 try:
                     self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     self.s.connect(dst_addr)
@@ -187,7 +180,6 @@ class EmailClient:
                     body = prompt("", multiline=True)
 
                 message = str(msg if forward else f"Subject: {subject}\r\n\r\n{body}\r\n.\r\n")
-                message = str(msg if forward else f"Subject: {subject}\r\n\r\n{body}\r\n.\r\n")
                 self.s.sendall(message.encode())
                 print(self.read_response(self.s).strip())
 
@@ -196,7 +188,6 @@ class EmailClient:
 
         except Exception as e:
             print("Error sending email:", e)
-            raise e
 
     def connect(self):
         try:

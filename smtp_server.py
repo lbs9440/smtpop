@@ -260,9 +260,6 @@ class Server:
             if client["dst"].split(b"@")[0].decode() not in emails:
                 emails[client["dst"].split(b"@")[0].decode()] = []
             emails[client["dst"].split(b"@")[0].decode()].append({"FROM": client["from"], "msg": client['msg']})
-            if client["dst"].split(b"@")[0].decode() not in emails:
-                emails[client["dst"].split(b"@")[0].decode()] = []
-            emails[client["dst"].split(b"@")[0].decode()].append({"FROM": client["from"], "msg": client['msg']})
             json.dump(emails, f, indent=4, ensure_ascii=False)
 
     def forward_email(self, client_sock):
@@ -280,7 +277,7 @@ class Server:
                 dst_addr = (dst_addr[0], int(dst_addr[1]))
                 # make Client instance
                 sender = smtp_client.EmailClient()
-                # use that to send to the other server in a subprocess.
+                # use that to send to the other server
                 sender.send_email(self_username="server", username=client["from"].split("@")[0], pw=SERVER_PASSWORD, to_addr=client["dst"].decode(), msg = client["msg"], dst_addr = dst_addr, forward=True, domain=self.domain)
 
     def smtp_commands(self, client_sock):
