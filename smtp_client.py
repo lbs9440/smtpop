@@ -5,18 +5,18 @@ Author: Landon Spitzer - lbs9440@rit.edu
 import socket
 import base64
 import hashlib
+import dns.dns
 from prompt_toolkit import prompt  # for multiline input
 
 DOMAIN = 'abeersclass.com'
 
 class EmailClient:
-    def __init__(self):
-        self.smtp_ip = 'localhost'
-        self.smtp_port = 2525
-        self.username = None
-        self.password = None
-        self.password_hash = None
-        self.s = None
+    def __init__(self, dns_ip = "127.0.0.1"):
+        self.dns_ip = dns_ip
+        self.username = ""
+        self.password = ""
+        self.password_hash = ""
+        self.s = ""
         self.pop_socket = None
         self.pop_ip = 'localhost'
         self.pop_port = 8110
@@ -92,15 +92,17 @@ class EmailClient:
             return False
         
     def login(self):
-        user_input = input("Enter username or email: ").strip()
+        user_input = input("Enter email: ").strip()
         if "@" in user_input:
-            self.username, domain = user_input.split("@", 1)
-            if domain.lower() != DOMAIN:
-                print("You're not in Abeers Class!")
-                self.s.close()
+            self.username, self.domain = user_input.split("@", 1)
+            addr = dns.dns.dns_lookup(self.dns_ip, 8080, self.domain)
+            if addr:
+                self.smtp_ip, self.smtp_port = addr[0], addr[1]
+                self.pop_ip = self.smtp_ip
+            else:
                 return False
         else:
-            self.username = user_input
+            return False
         
         password = input("Enter password: ").strip()
         self.hashed_password = self.hash_password(password)
