@@ -23,6 +23,7 @@ class States(Enum):
     DATA = "DATA"
     POP3_TRAN = "POP3_TRANSACTION"
 
+SERVER_PASSWORD = "pass"
 
 class Server:
     def __init__(self, domain = "abeersclass.com", dns_ip = "127.0.0.1") -> None:
@@ -254,15 +255,17 @@ class Server:
         with open("emails.json", 'r') as f:
             emails = json.load(f)
         with open("emails.json", 'w') as f:
-            if client["username"] not in emails:
-                emails[client["username"]] = []
-            emails[client["username"]].append({"FROM": client["from"], "msg": client['msg']})
+            if client["dst"].split(b"@")[0].decode() not in emails:
+                emails[client["dst"].split(b"@")[0].decode()] = []
+            emails[client["dst"].split(b"@")[0].decode()].append({"FROM": client["from"], "msg": client['msg']})
             json.dump(emails, f, indent=4, ensure_ascii=False)
 
     def forward_email(self, client_sock):
         client = self.clients[client_sock]
         to_domain = client["dst"].split(b"@")[-1].decode()
+        print(f"To domain = {to_domain}")
         if to_domain == self.domain:
+            print("Updating Emails")
             self.update_emails(client)
         else:
             # do DNS lookup for dst
@@ -272,8 +275,8 @@ class Server:
                 dst_addr = (dst_addr[0], int(dst_addr[1]))
                 # make Client instance
                 sender = smtp_client.EmailClient()
-                # use that to send to the other server in a subprocess.
-                subprocess.run(sender.send_email(username=client["username"], pw=client["pw"], to_addr=client["dst"], msg = client["msg"], dst_addr = dst_addr, forward=True))
+                # use that to send to the other server
+                sender.send_email(self_username= "server", username=client["from"].split("@")[0], pw=SERVER_PASSWORD, to_addr=client["dst"].decode(), msg = client["msg"], dst_addr = dst_addr, forward=True, domain = self.domain)
 
     def smtp_commands(self, client_sock):
         client = self.clients[client_sock]

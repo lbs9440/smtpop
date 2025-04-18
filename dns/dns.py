@@ -48,7 +48,7 @@ class DNS:
         with open("dns_table.json", "r") as f:
             self.table = json.load(f)
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.bind(("127.0.0.1", 8080))
+        self.socket.bind(("0.0.0.0", 8080))
 
 
     def run(self):

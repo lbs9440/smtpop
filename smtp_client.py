@@ -16,7 +16,7 @@ class EmailClient:
         self.username = ""
         self.password = ""
         self.password_hash = ""
-        self.s = ""
+        self.s = None
         self.pop_socket = None
         self.pop_ip = 'localhost'
         self.pop_port = 8110
@@ -49,7 +49,8 @@ class EmailClient:
                 print("Invalid choice.")
 
     def server_auth(self):
-        self.s = self.connect()
+        if self.s is None:
+            self.s = self.connect()
         if not self.s:
             return False
         
@@ -59,6 +60,7 @@ class EmailClient:
             if "250-AUTH LOGIN PLAIN" not in server_response:
                 print("Server does not support AUTH LOGIN.")
                 self.s.close()
+                self.s = None
                 return False
 
             self.send_and_print(self.s, "AUTH LOGIN")
@@ -66,6 +68,7 @@ class EmailClient:
             if not username_prompt.startswith("334"):
                 print(f"Expected username prompt. {username_prompt}")
                 self.s.close()
+                self.s = None
                 return False
 
             encoded_user = base64.b64encode(self.username.encode()).decode()
@@ -75,6 +78,7 @@ class EmailClient:
             if not password_prompt.startswith("334"):
                 print("Expected password prompt.")
                 self.s.close()
+                self.s = None
                 return False
 
             encoded_pass = base64.b64encode(str(self.password_hash).encode()).decode()
@@ -89,6 +93,7 @@ class EmailClient:
         except Exception as e:
             print("Login error:", e)
             self.s.close()
+            self.s = None
             return False
         
     def login(self):
@@ -113,14 +118,17 @@ class EmailClient:
             self.send_and_print(self.s, "QUIT") 
             self.read_response(self.s)  
             self.s.close()
+            self.s = None
             return True
 
 
 
-    def send_email(self, username="", pw="", to_addr = "", msg = "", dst_addr = (), forward = False):
+    def send_email(self, self_username = "", username="", pw="", to_addr = "", msg = "", dst_addr = (), forward = False, domain = ""):
         try:
             if forward:
+                self.username = self_username
                 self.password_hash = pw
+                self.domain = domain
                 try:
                     self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     self.s.connect(dst_addr)
@@ -158,12 +166,13 @@ class EmailClient:
                     print("Server not ready for data.")
                     return
 
-                # Compose message
-                subject = input("Subject: ")
-                print("Compose your email (end with ESC then Enter):")
-                body = prompt("", multiline=True)
+                if not forward:
+                    # Compose message
+                    subject = input("Subject: ")
+                    print("Compose your email (end with ESC then Enter):")
+                    body = prompt("", multiline=True)
 
-                message = str(f"Subject: {subject}\r\n\r\n{body}\r\n.\r\n" if not forward else msg)
+                message = str(msg if forward else f"Subject: {subject}\r\n\r\n{body}\r\n.\r\n")
                 self.s.sendall(message.encode())
                 print(self.read_response(self.s).strip())
 
