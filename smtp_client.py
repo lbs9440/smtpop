@@ -1,5 +1,5 @@
 """
-SMTP Client implementation
+SMTP Client implementation 
 Author: Landon Spitzer - lbs9440@rit.edu
 """
 import socket
@@ -11,7 +11,7 @@ from prompt_toolkit import prompt  # for multiline input
 DOMAIN = 'abeersclass.com'
 
 class EmailClient:
-    def __init__(self, dns_ip = "127.0.0.1"):
+    def __init__(self, dns_ip = "192.168.124.32"):
         self.dns_ip = dns_ip
         self.username = ""
         self.password = ""
@@ -51,6 +51,7 @@ class EmailClient:
     def server_auth(self):
         if self.s is None:
             self.s = self.connect()
+
         if not self.s:
             return False
         
@@ -123,12 +124,12 @@ class EmailClient:
 
 
 
-    def send_email(self, self_username = "", username="", pw="", to_addr = "", msg = "", dst_addr = (), forward = False, domain = ""):
+    def send_email(self, self_username="", username="", pw="", to_addr = "", msg = "", dst_addr = (), forward = False, domain=""):
         try:
             if forward:
+                self.domain = domain
                 self.username = self_username
                 self.password_hash = pw
-                self.domain = domain
                 try:
                     self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     self.s.connect(dst_addr)
@@ -137,6 +138,7 @@ class EmailClient:
                 except Exception as e:
                     print(f"Connection failed: {e}")
                     return None
+                
             if self.server_auth():
                 from_address = f"{str(self.username if not forward else username)}@{self.domain}"
                 to_address = str(to_addr if forward else input("To (recipient email): ").strip())
