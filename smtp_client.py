@@ -133,12 +133,19 @@ class EmailClient:
                     return
 
                 # MAIL FROM
-                self.send_and_print(self.s, f"MAIL FROM:<{from_address}>")
-                print(self.read_response(self.s).strip())
+                self.send_and_print(self.s, f"MAIL FROM:{from_address}")
+                response = self.read_response(self.s).strip()
+                print(response)
+                if not response.startswith("250"):
+                    return
 
                 # RCPT TO
-                self.send_and_print(self.s, f"RCPT TO:<{to_address}>")
+                self.send_and_print(self.s, f"RCPT TO:{to_address}")
                 print(self.read_response(self.s).strip())
+                response = self.read_response(self.s).strip()
+                print(response)
+                if not response.startswith("250"):
+                    return
 
                 # DATA
                 self.send_and_print(self.s, "DATA")
@@ -204,7 +211,6 @@ class EmailClient:
 
             if count == 0:
                 print("Inbox is empty.")
-                return
             elif count == -1:
                 print(f"Error fetching inbox: {stat}")
                 return
@@ -296,17 +302,33 @@ class EmailClient:
             elif action == "v":
                 msg = input("Message number to view: ").strip()
                 self.send_and_print(self.pop_socket, f"RETR {msg}")
-                print(self.read_multiline(self.pop_socket))
+                response = self.read_multiline(self.pop_socket)
+                if not self.isStatusOK(response[0]):
+                    self.pop_socket.close()
+                    break
+                print(response)
             elif action == "d":
                 msg = input("Message number to delete: ").strip()
                 self.send_and_print(self.pop_socket, f"DELE {msg}")
-                print(self.read_response(self.pop_socket).strip())
+                response = self.read_response(self.pop_socket).strip()
+                if not self.isStatusOK(response[0]):
+                    self.pop_socket.close()
+                    break
+                print(response)
             elif action == "r":
                 self.send_and_print(self.pop_socket, "RSET")
-                print(self.read_response(self.pop_socket).strip())
+                response = self.read_response(self.pop_socket).strip()
+                if not self.isStatusOK(response[0]):
+                    self.pop_socket.close()
+                    break
+                print(response)
             elif action == "l":
                 self.send_and_print(self.pop_socket, "LAST")
-                print(self.read_response(self.pop_socket).strip())
+                response = self.read_response(self.pop_socket).strip()
+                if not self.isStatusOK(response[0]):
+                    self.pop_socket.close()
+                    break
+                print(response)
             elif action == "q":
                 self.send_and_print(self.pop_socket, "QUIT")
                 print(self.read_response(self.pop_socket).strip())
@@ -315,6 +337,9 @@ class EmailClient:
             else:
                 print("Invalid option.")
             
+    def isStatusOK(self, msg):
+        return msg.startswith() == "+OK"
+
 
 def main():
     client = EmailClient()
