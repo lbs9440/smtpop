@@ -5,6 +5,7 @@ Author: Landon Spitzer - lbs9440@rit.edu
 import socket
 import base64
 import hashlib
+import argparse
 import dns.dns
 from prompt_toolkit import prompt  # for multiline input
 
@@ -347,8 +348,17 @@ class EmailClient:
 
 
 def main():
-    client = EmailClient()
+    parser = argparse.ArgumentParser(description="For running a SMTP/POP3 Client")
+
+    parser.add_argument("--debug", "-d", action="store_true", help="Enable debug mode (default: False)")
+    parser.add_argument("--dns-ip", "-i", type=str, default="127.0.0.1", help="DNS server IP address (default: 127.0.0.1)")
+
+    args = parser.parse_args()
+    
+    DEBUG_MODE = args.debug
+    client = EmailClient(dns_ip=args.dns_ip)
     client.run()
+
 
 if __name__ == "__main__":
     main()
