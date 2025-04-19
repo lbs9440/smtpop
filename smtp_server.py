@@ -41,7 +41,7 @@ class Server:
         self.server_sock.bind(('0.0.0.0', port))
         self.server_sock.listen(5)
         print(f"Server socket bound to port {port}")
-        dns.dns.dns_update(dns_ip, 8080, domain, "127.0.0.1", port)
+        dns.dns.dns_update(dns_ip, 8080, domain, port)
         self.pop_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.pop_sock.setblocking(False)
         self.pop_sock.bind(('0.0.0.0', 8110))
@@ -424,10 +424,7 @@ class Server:
                     self.disconnect(client_sock)
 
     def run(self):
-        """Constructor for email Server class.
-
-        :param domain: the email domain for which this server should operate.
-        :param dns_ip: the IP of the DNS server.
+        """Run the server.
         """
 
         try:
