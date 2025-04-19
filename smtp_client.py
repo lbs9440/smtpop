@@ -1,6 +1,6 @@
 """
 SMTP Client implementation 
-Author: Landon Spitzer - lbs9440@rit.edu
+Author: Landon Spitzer - lbs9440@rit.edu and Caleb Naeger - cmn4315@rit.edu
 """
 import socket
 import base64
@@ -12,7 +12,14 @@ from prompt_toolkit import prompt  # for multiline input
 DOMAIN = 'abeersclass.com'
 
 class EmailClient:
+    """ An email client that supports SMTP and POP3, to send and receive emails respectively. """
     def __init__(self, dns_ip = "192.168.124.32", debug_mode=False):
+        """
+        Initialize the email client.
+        
+        :param dns_ip: The IP address of the DNS server.
+        :param debug_mode: Enable debug mode.
+        """
         self.dns_ip = dns_ip
         self.debug_mode = debug_mode
         self.username = ""
@@ -24,6 +31,11 @@ class EmailClient:
         self.pop_port = 8110
 
     def run(self):
+        """ Run the email client. 
+        
+        Calls the login method of the EmailClient class, authenticating with server.
+        Then proceeds to the menu where the user can choose to compose or view emails.
+        """
         print("Welcome to Email Client")
         if self.login():
             print(f"Logged in as {self.username}@{self.domain}")
@@ -32,6 +44,7 @@ class EmailClient:
             print("Login failed.")
 
     def menu(self):
+        """ Display a menu to the user, allowing them to compose or view emails. """
         while True:
             print("\nMenu:")
             print("1. Compose Email")
@@ -51,6 +64,12 @@ class EmailClient:
                 print("Invalid choice.")
 
     def server_auth(self):
+        """ Attempt to authenticate with the server. 
+        
+        First steps of SMTP to authenticate with the server whenever a command is given.
+
+        :return: True if authentication is successful, False otherwise.
+        """
         if self.s is None:
             self.s = self.connect()
 
@@ -100,6 +119,12 @@ class EmailClient:
             return False
         
     def login(self):
+        """Login to the email server. 
+        
+        Prompts the user to enter their email and password, then attempts to authenticate with the server.
+
+        :return: True if login is successful, False otherwise.
+        """
         user_input = input("Enter email: ").strip()
         if "@" in user_input:
             self.username, self.domain = user_input.split("@", 1)
@@ -127,6 +152,19 @@ class EmailClient:
 
 
     def send_email(self, self_username="", username="", pw="", to_addr = "", msg = "", dst_addr = (), forward = False, domain=""):
+        """ Sends an email to a recipient. 
+        
+        :param self_username: What to set username to when forwarding.
+        :param username: Username of the original sender of the email when forwarding.
+        :param pw: Password of the original sender of the email when forwarding.
+        :param to_addr: Email address of the recipient when forwarding.
+        :param msg: Message to send when forwarding.
+        :param dst_addr: Address of the server to send the email to when forwarding.
+        :param forward: Whether to forward the email or not.
+        :param domain: Domain of the server to forward to when forwarding.
+
+        :return: Returns if email is sent unsuccessfully.
+        """
         try:
             if forward:
                 self.domain = domain
@@ -187,6 +225,10 @@ class EmailClient:
             print("Error sending email:", e)
 
     def connect(self):
+        """Connects to the email server.
+        
+        :return s: Returns the socket object if connection is successful, None otherwise.
+        """
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             print(f"trying to connect to: {self.smtp_ip}, {self.smtp_port}") if self.debug_mode else ""
@@ -199,9 +241,19 @@ class EmailClient:
             return None
 
     def read_response(self, sock):
+        """ Reads a response from the server.
+
+        :param sock: The socket object to read from.
+        :return: The decoded response from the server.
+        """
         return sock.recv(1024).decode()
 
     def read_multiline(self, sock):
+        """ Reads a multiline response from the server.
+
+        :param sock: The socket object to read from.
+        :return: The decoded response from the server.
+        """
         lines = []
         while True:
             chunk = sock.recv(1024).decode()
@@ -213,14 +265,31 @@ class EmailClient:
 
 
     def send_and_print(self, sock, msg):
+        """ Sends a message to the server and prints the message if in debug mode.
+
+        :param sock: The socket object to send the message to.
+        :param msg: The message to send.
+        """
         sock.sendall((msg + "\r\n").encode())
         if self.debug_mode:
             print(f"> {msg}")
 
     def hash_password(self, password):
+        """ Hashes the password using SHA256.
+
+        :param password: The password to hash.
+        :return: The hashed password.
+        """
         return hashlib.sha256(password.encode()).hexdigest()
     
     def fetch_inbox(self):
+        """ Fetches the inbox of the user.
+        
+        Uses the POP3 command - STAT - to fetch the amount of emails (and size in octets) 
+        of the user's inbox from the server. Calls pop3_trans().
+
+        :return: Returns if uncessessful.
+        """
         try:
             if not self.pop3_auth():
                 return
@@ -241,6 +310,12 @@ class EmailClient:
             print(f"Error fetching inbox: {e}")
     
     def pop3_auth(self):
+        """ Authenticates the user to the POP3 server.
+        
+        Uses POP3 commands - USER and PASS - to authenticate the user to the server.
+
+        :return: Returns true if authentification is successful, false otherwise.
+        """
         try:
             self.pop_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.pop_socket.connect((self.pop_ip, self.pop_port))
@@ -274,6 +349,14 @@ class EmailClient:
             return False
     
     def pop3_trans(self, total_msgs):
+        """ POP3 Transaction function for client side.
+
+        Provides the inbox menue once a user has authenticated to the POP3 server.
+        Displays the inbox in pages of 10 messages at a time. 
+        The user can choose to view a message, mark a message for deletion, or unmark all deletions.
+        
+        :param total_msgs: The total number of messages in the inbox.
+        """
         page_size = 10
         current_page = 0
 
@@ -344,6 +427,10 @@ class EmailClient:
                 print("Invalid option.")
             
     def isStatusOK(self, msg):
+        """ Checks if a POP3 server response is a success message.
+        
+        :return: True if the response is a success message, False otherwise.
+        """
         return msg.startswith("+OK") 
 
 
