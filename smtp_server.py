@@ -1,6 +1,6 @@
 """
 SMTP Server implementation
-Author: Caleb Naeger - cmn4315@rit.edu
+Authors: Caleb Naeger - cmn4315@rit.edu, Landon Spitzer - lbs9440@rit.edu
 """
 from enum import Enum
 import argparse
@@ -26,7 +26,12 @@ class States(Enum):
     POP3_TRAN = "POP3_TRANSACTION"
 
 class Server:
-    def __init__(self, domain = "email.com", dns_ip = "192.168.124.32") -> None:
+    def __init__(self, domain = "abeersclass.com", dns_ip = "127.0.0.1") -> None:
+        """Constructor for email Server class.
+
+        :param domain: the email domain for which this server should operate.
+        :param dns_ip: the IP of the DNS server.
+        """
         self.clients = {}
         self.domain = domain
         self.load_accounts(f"{self.domain.split(".")[0]}/accounts.json")
@@ -45,12 +50,20 @@ class Server:
         self.dns_port = 8080
         self.dns_ip = dns_ip
 
-    def load_accounts(self, filename: str) -> None:
+    def load_accounts(self, filename: str):
+        """Load known accounts from a json file
+
+        :param filename: the path of the accounts json file
+        """
         with open(filename) as f:
             data = json.load(f)
             self.accounts = data
 
     def load_emails(self, username):
+        """Load saved emails from the email "database" json file associated with this domain
+
+        :param username: the username for which to retrieve emails
+        """
         with open(f"{self.domain.split(".")[0]}/emails.json", "r") as f:
             emails = json.load(f)
             if username not in emails:
@@ -58,6 +71,11 @@ class Server:
             return emails[username]
 
     def new_client(self, sock):
+        """Accept a new client connection
+
+        :param sock: the server socket from which to accept the connection
+        """
+
         client, addr = sock.accept()
         client.setblocking(False)
         self.inputs.append(client)
@@ -70,6 +88,11 @@ class Server:
             client.sendall(f"220 smtp-server{self.server_sock.getsockname()[1]}.abeeersclass.com".encode())
 
     def read_from_client(self, client):
+        """Read a message from the client, responding to commands as needed
+
+        :param client: the client socket from which to read
+        """
+
         try:
             data = client.recv(1024)
             self.clients[client]["buffer"] += data
@@ -81,6 +104,11 @@ class Server:
             self.disconnect(client)
 
     def pop_commands(self, client_sock):
+        """Process client commands for a POP3 connection.
+
+        :param client_sock: the client socket to retrieve communication from
+        """
+
         client = self.clients[client_sock]
         input_lines = client['buffer'].split(b"\r\n")
         client['buffer'] = input_lines[-1] # write unfinished line back to the dict
@@ -190,6 +218,12 @@ class Server:
                     self.disconnect(client_sock)
 
     def write_emails(self, username, newemails):
+        """Save a list of emails to the database json associated with this domain, replacing any previously stored emails.
+
+        :param username: the username to which the emails belong
+        :param newemails: the list of emails to save.
+        """
+
         emails = {}
         with open(f"{self.domain.split(".")[0]}/emails.json", 'r') as f:
             emails = json.load(f)
@@ -198,11 +232,21 @@ class Server:
             json.dump(emails, f, indent=4, ensure_ascii=False)
 
     def disconnect(self, client):
+        """Disconnect from a client
+
+        :param client: the client from which to disconnect
+        """
+
         del self.clients[client]
         self.inputs.remove(client)
         client.close()
 
     def parse_commands(self, lines) -> list[str]:
+        """Parse client SMTP commands from a list of lines
+
+        :param lines: the list of lines to parse.
+        """
+
         commands = []
         for line in lines:
             line = line.decode()
@@ -224,6 +268,11 @@ class Server:
         return commands
     
     def parse_pop3_commands(self, lines) -> list[str]:
+        """Parse client SMTP commands from a list of lines
+
+        :param lines: the list of lines to parse
+        """
+
         commands = []
         for line in lines:
             line = line.decode()
@@ -250,9 +299,19 @@ class Server:
         return commands
 
     def verify_account(self, client):
+        """Verify that the client has provided correct credentials.
+
+        :param client: the entry from self.clients of the client to check.
+        """
+
         return self.accounts[client["username"]] == client["pw"]
 
     def update_emails(self, client):
+        """Update the emails.json with a newly received email
+
+        :param client: the entry from self.clients of the client to use.
+        """
+
         emails = {}
         with open(f"{self.domain.split(".")[0]}/emails.json", 'r') as f:
             emails = json.load(f)
@@ -263,6 +322,12 @@ class Server:
             json.dump(emails, f, indent=4, ensure_ascii=False)
 
     def forward_email(self, client_sock):
+        """Check if a received email is addressed to this domain, saving it if it is and forwarding to another SMTP
+        server if not.
+
+        :param client_sock: the client socket from which the email was received
+        """
+
         client = self.clients[client_sock]
         to_domain = client["dst"].split(b"@")[-1].decode()
         print(f"To domain = {to_domain}")
@@ -281,6 +346,11 @@ class Server:
                 sender.send_email(self_username="server", username=client["from"].split("@")[0], pw=SERVER_PASSWORD, to_addr=client["dst"].decode(), msg = client["msg"], dst_addr = dst_addr, forward=True, domain=self.domain)
 
     def smtp_commands(self, client_sock):
+        """Process smtp commands from the client, responding as appropriate.
+
+        :param client_sock: the client socket from which to process the input
+        """
+
         client = self.clients[client_sock]
         input_lines = client['buffer'].split(b"\r\n")
         client['buffer'] = input_lines[-1] # write unfinished line back to the dict
@@ -354,6 +424,12 @@ class Server:
                     self.disconnect(client_sock)
 
     def run(self):
+        """Constructor for email Server class.
+
+        :param domain: the email domain for which this server should operate.
+        :param dns_ip: the IP of the DNS server.
+        """
+
         try:
             while(True):
                 readable_socks, _, _ = select.select(self.inputs, [], [])
