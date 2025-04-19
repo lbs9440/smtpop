@@ -53,6 +53,8 @@ class Server:
     def load_emails(self, username):
         with open(f"{self.domain.split(".")[0]}/emails.json", "r") as f:
             emails = json.load(f)
+            if username not in emails:
+                emails[username] = []
             return emails[username]
 
     def new_client(self, sock):
