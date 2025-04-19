@@ -3,6 +3,7 @@ SMTP Server implementation
 Author: Caleb Naeger - cmn4315@rit.edu
 """
 from enum import Enum
+import argparse
 import socket
 import json
 import select
@@ -10,7 +11,6 @@ import base64
 import random
 import dns.dns
 import smtp_client
-import subprocess
 
 SERVER_PASSWORD = 'pass'
 
@@ -28,7 +28,8 @@ class States(Enum):
 class Server:
     def __init__(self, domain = "email.com", dns_ip = "192.168.124.32") -> None:
         self.clients = {}
-        self.load_accounts("accounts.json")
+        self.domain = domain
+        self.load_accounts(f"{self.domain.split(".")[0]}/accounts.json")
         port = random.randint(5000, 8000)
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setblocking(False)
@@ -41,7 +42,6 @@ class Server:
         self.pop_sock.bind(('0.0.0.0', 8110))
         self.pop_sock.listen(5)
         self.inputs = [self.server_sock, self.pop_sock]
-        self.domain = domain
         self.dns_port = 8080
         self.dns_ip = dns_ip
 
@@ -51,7 +51,7 @@ class Server:
             self.accounts = data
 
     def load_emails(self, username):
-        with open("emails.json", "r") as f:
+        with open(f"{self.domain.split(".")[0]}/emails.json", "r") as f:
             emails = json.load(f)
             return emails[username]
 
@@ -189,10 +189,10 @@ class Server:
 
     def write_emails(self, username, newemails):
         emails = {}
-        with open("emails.json", 'r') as f:
+        with open(f"{self.domain.split(".")[0]}/emails.json", 'r') as f:
             emails = json.load(f)
             emails[username] = newemails
-        with open("emails.json", 'w') as f:
+        with open(f"{self.domain.split(".")[0]}/emails.json", 'w') as f:
             json.dump(emails, f, indent=4, ensure_ascii=False)
 
     def disconnect(self, client):
@@ -252,9 +252,9 @@ class Server:
 
     def update_emails(self, client):
         emails = {}
-        with open("emails.json", 'r') as f:
+        with open(f"{self.domain.split(".")[0]}/emails.json", 'r') as f:
             emails = json.load(f)
-        with open("emails.json", 'w') as f:
+        with open(f"{self.domain.split(".")[0]}/emails.json", 'w') as f:
             if client["dst"].split(b"@")[0].decode() not in emails:
                 emails[client["dst"].split(b"@")[0].decode()] = []
             emails[client["dst"].split(b"@")[0].decode()].append({"FROM": client["from"], "msg": client['msg']})
@@ -365,9 +365,18 @@ class Server:
             self.pop_sock.close()
             raise e
 
-def main():
-    server = Server()
+def main(dns, domain):
+    server = Server(dns_ip=dns, domain=domain)
     server.run()
 
 if __name__ == "__main__":
-    main()
+    # Create the parser
+    parser = argparse.ArgumentParser(description='Server for a simple reliable file-transfer application.')
+    
+    # Add arguments
+    parser.add_argument('-dns',  required=False,type=str, default="127.0.0.1", help='The destination IP for the DNS server. Should be set to the LAN IP of the machine on which the DNS is running if communicating between machines. Defaults to localhost.')
+    parser.add_argument('-domain',  required=False,type=str, default="abeersclass.com", help='Domain for which this server should operate. Defaults to "abeersclass.com"')
+    
+    args = parser.parse_args()
+    main(args.dns, args.domain)
+
