@@ -10,11 +10,11 @@ import dns.dns
 from prompt_toolkit import prompt  # for multiline input
 
 DOMAIN = 'abeersclass.com'
-DEBUG_MODE = True
 
 class EmailClient:
-    def __init__(self, dns_ip = "192.168.124.32"):
+    def __init__(self, dns_ip = "192.168.124.32", debug_mode=False):
         self.dns_ip = dns_ip
+        self.debug_mode = debug_mode
         self.username = ""
         self.password = ""
         self.password_hash = ""
@@ -88,7 +88,7 @@ class EmailClient:
             self.send_and_print(self.s, encoded_pass)
 
             auth_response = self.read_response(self.s).strip()
-            print(f"Server: {auth_response}") if DEBUG_MODE else ""
+            print(f"Server: {auth_response}") if self.debug_mode else ""
 
             if auth_response.startswith("235"):
                 return True
@@ -107,7 +107,7 @@ class EmailClient:
             if addr:
                 addr = addr.split(" ")
                 self.smtp_ip, self.smtp_port = addr[0], int(addr[1])
-                print(f"DNS lookup found server on port {self.smtp_port}") if DEBUG_MODE else ""
+                print(f"DNS lookup found server on port {self.smtp_port}") if self.debug_mode else ""
                 self.pop_ip = self.smtp_ip
             else:
                 return False
@@ -136,7 +136,7 @@ class EmailClient:
                     self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     self.s.connect(dst_addr)
                     greeting = self.read_response(self.s)
-                    print(f"Server: {greeting.strip()}") if DEBUG_MODE else ""
+                    print(f"Server: {greeting.strip()}") if self.debug_mode else ""
                 except Exception as e:
                     print(f"Connection failed: {e}")
                     return None
@@ -151,21 +151,21 @@ class EmailClient:
                 # MAIL FROM
                 self.send_and_print(self.s, f"MAIL FROM:{from_address}")
                 response = self.read_response(self.s).strip()
-                print(response) if DEBUG_MODE else ""
+                print(response) if self.debug_mode else ""
                 if not response.startswith("250"):
                     return
 
                 # RCPT TO
                 self.send_and_print(self.s, f"RCPT TO:{to_address}")
                 response = self.read_response(self.s).strip()
-                print(response) if DEBUG_MODE else ""
+                print(response) if self.debug_mode else ""
                 if not response.startswith("250"):
                     return
 
                 # DATA
                 self.send_and_print(self.s, "DATA")
                 response = self.read_response(self.s).strip()
-                print(response) if DEBUG_MODE else ""
+                print(response) if self.debug_mode else ""
                 if not response.startswith("354"):
                     print("Server not ready for data.")
                     return
@@ -189,10 +189,10 @@ class EmailClient:
     def connect(self):
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            print(f"trying to connect to: {self.smtp_ip}, {self.smtp_port}") if DEBUG_MODE else ""
+            print(f"trying to connect to: {self.smtp_ip}, {self.smtp_port}") if self.debug_mode else ""
             s.connect((self.smtp_ip, self.smtp_port))
             greeting = self.read_response(s)
-            print(f"Server: {greeting.strip()}") if DEBUG_MODE else ""
+            print(f"Server: {greeting.strip()}") if self.debug_mode else ""
             return s
         except Exception as e:
             print(f"Connection failed: {e}")
@@ -214,7 +214,7 @@ class EmailClient:
 
     def send_and_print(self, sock, msg):
         sock.sendall((msg + "\r\n").encode())
-        if DEBUG_MODE:
+        if self.debug_mode:
             print(f"> {msg}")
 
     def hash_password(self, password):
@@ -227,7 +227,7 @@ class EmailClient:
 
             self.send_and_print(self.pop_socket, "STAT")
             stat = self.read_response(self.pop_socket)
-            print(f"Server: {stat.strip()}") if DEBUG_MODE else ""
+            print(f"Server: {stat.strip()}") if self.debug_mode else ""
             count = int(stat.split()[1]) if stat.startswith("+OK") else -1
 
             if count == 0:
@@ -245,7 +245,7 @@ class EmailClient:
             self.pop_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.pop_socket.connect((self.pop_ip, self.pop_port))
             ready = self.read_response(self.pop_socket)
-            print(f"Server: {ready.strip()}") if DEBUG_MODE else ""
+            print(f"Server: {ready.strip()}") if self.debug_mode else ""
             if not ready.startswith("+OK"):
                 print("POP3 server not ready.")
                 self.pop_socket.close()
@@ -253,7 +253,7 @@ class EmailClient:
 
             self.send_and_print(self.pop_socket, "USER " + self.username)
             user_response = self.read_response(self.pop_socket)
-            print(f"Server: {user_response.strip()}") if DEBUG_MODE else ""
+            print(f"Server: {user_response.strip()}") if self.debug_mode else ""
             if not user_response.startswith(f"+OK {self.username}"):
                 print("Error with username.")
                 self.pop_socket.close()
@@ -261,7 +261,7 @@ class EmailClient:
 
             self.send_and_print(self.pop_socket, "PASS " + self.password_hash)
             pass_response = self.read_response(self.pop_socket)
-            print(f"Server: {pass_response.strip()}") if DEBUG_MODE else ""
+            print(f"Server: {pass_response.strip()}") if self.debug_mode else ""
             if not pass_response.startswith(f"+OK {self.username}"):
                 print("Error with password.")
                 self.pop_socket.close()
@@ -326,7 +326,7 @@ class EmailClient:
                     self.pop_socket.close()
                     break
                 print(f"Email {msg} marked for deletion.")
-                print(response) if DEBUG_MODE else ""
+                print(response) if self.debug_mode else ""
             elif action == "r":
                 self.send_and_print(self.pop_socket, "RSET")
                 response = self.read_response(self.pop_socket).strip()
@@ -334,7 +334,7 @@ class EmailClient:
                     self.pop_socket.close()
                     break
                 print("All emails unmarked from deletion for this session.")
-                print(response) if DEBUG_MODE else ""
+                print(response) if self.debug_mode else ""
             elif action == "q":
                 self.send_and_print(self.pop_socket, "QUIT")
                 print(self.read_response(self.pop_socket).strip())
@@ -355,8 +355,7 @@ def main():
 
     args = parser.parse_args()
     
-    DEBUG_MODE = args.debug
-    client = EmailClient(dns_ip=args.dns_ip)
+    client = EmailClient(dns_ip=args.dns_ip, debug_mode=args.debug)
     client.run()
 
 
